@@ -256,6 +256,7 @@ class CatalogImpl(sparkSession: SparkSession) extends Catalog {
    * Checks if the table or view with the specified name exists in the specified database.
    */
   override def tableExists(dbName: String, tableName: String): Boolean = {
+    println("**************************************************************tableExits")
     val tableIdent = TableIdentifier(tableName, Option(dbName))
     sessionCatalog.isTemporaryTable(tableIdent) || sessionCatalog.tableExists(tableIdent)
   }

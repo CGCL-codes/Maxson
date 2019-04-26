@@ -445,14 +445,22 @@ case class FileSourceScanExec(
       currentSize = 0
     }
 
-    // Assign files to partitions using "Next Fit Decreasing"
-    splitFiles.foreach { file =>
-      if (currentSize + file.length > maxSplitBytes) {
+    val cacheFileFlag = fsRelation.sparkSession.sessionState.conf.cacheSplitFile
+    if (cacheFileFlag) {
+      splitFiles.foreach{ file =>
+        currentFiles += file
         closePartition()
       }
-      // Add the given file to the current partition.
-      currentSize += file.length + openCostInBytes
-      currentFiles += file
+    } else {
+      // Assign files to partitions using "Next Fit Decreasing"
+      splitFiles.foreach { file =>
+        if (currentSize + file.length > maxSplitBytes) {
+          closePartition()
+        }
+        // Add the given file to the current partition.
+        currentSize += file.length + openCostInBytes
+        currentFiles += file
+      }
     }
     closePartition()
 

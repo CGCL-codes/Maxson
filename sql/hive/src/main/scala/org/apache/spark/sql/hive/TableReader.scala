@@ -306,7 +306,6 @@ class HadoopTableReader(
       classOf[Writable],
       classOf[Writable],
       _minSplitsPerRDD)
-
     // Only take the value (skip the key) because Hive works only with values.
     rdd.map(_._2)
   }

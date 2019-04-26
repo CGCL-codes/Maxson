@@ -109,6 +109,12 @@ object SQLConf {
    */
   def get: SQLConf = confGetter.get()()
 
+  val CACHE_SPLIT_FILE = buildConf("spark.sql.optimizer.cacheSplitFile")
+    .internal()
+    .doc("the flag to adjust if caching the file we need")
+    .booleanConf
+    .createWithDefault(false)
+
   val OPTIMIZER_MAX_ITERATIONS = buildConf("spark.sql.optimizer.maxIterations")
     .internal()
     .doc("The max number of iterations the optimizer and analyzer runs.")
@@ -1202,6 +1208,8 @@ class SQLConf extends Serializable with Logging {
   @transient private val reader = new ConfigReader(settings)
 
   /** ************************ Spark SQL Params/Hints ******************* */
+
+  def cacheSplitFile:Boolean = getConf(CACHE_SPLIT_FILE)
 
   def optimizerMaxIterations: Int = getConf(OPTIMIZER_MAX_ITERATIONS)
 
