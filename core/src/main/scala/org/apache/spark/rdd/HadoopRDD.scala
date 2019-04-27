@@ -225,7 +225,7 @@ class HadoopRDD[K, V](
     array
   }
 
-  var cacheTable:String = "log_path"
+  var cacheTable:String = "path"
   var dirs:String = "file:/C:/Users/zyp/ali/spark/spark-warehouse/"+cacheTable
   lazy val cacheSplits = getPartitions(dirs)
 
@@ -280,7 +280,13 @@ class HadoopRDD[K, V](
       private val existingBytesRead = inputMetrics.bytesRead
 
       // Sets InputFileBlockHolder for the file block's information
-      split.inputSplit.value match {
+//      split.inputSplit.value match {
+//        case fs: FileSplit =>
+//          InputFileBlockHolder.set(fs.getPath.toString, fs.getStart, fs.getLength)
+//        case _ =>
+//          InputFileBlockHolder.unset()
+//      }
+      cacheSplit.inputSplit.value match {
         case fs: FileSplit =>
           InputFileBlockHolder.set(fs.getPath.toString, fs.getStart, fs.getLength)
         case _ =>
@@ -289,11 +295,11 @@ class HadoopRDD[K, V](
 
       // Find a function that will return the FileSystem bytes read by this thread. Do this before
       // creating RecordReader, because RecordReader's constructor might read some bytes
-      private val getBytesReadCallback: Option[() => Long] = split.inputSplit.value match {
-        case _: FileSplit | _: CombineFileSplit =>
-          Some(SparkHadoopUtil.get.getFSBytesReadOnThreadCallback())
-        case _ => None
-      }
+//      private val getBytesReadCallback: Option[() => Long] = split.inputSplit.value match {
+//        case _: FileSplit | _: CombineFileSplit =>
+//          Some(SparkHadoopUtil.get.getFSBytesReadOnThreadCallback())
+//        case _ => None
+//      }
 
       private val getCacheBytesReadCallback: Option[() => Long] = cacheSplit.inputSplit.value match {
         case _: FileSplit | _: CombineFileSplit =>
@@ -307,11 +313,11 @@ class HadoopRDD[K, V](
       // If we do a coalesce, however, we are likely to compute multiple partitions in the same
       // task and in the same thread, in which case we need to avoid override values written by
       // previous partitions (SPARK-13071).
-      private def updateBytesRead(): Unit = {
-        getBytesReadCallback.foreach { getBytesRead =>
-          inputMetrics.setBytesRead(existingBytesRead + getBytesRead())
-        }
-      }
+//      private def updateBytesRead(): Unit = {
+//        getBytesReadCallback.foreach { getBytesRead =>
+//          inputMetrics.setBytesRead(existingBytesRead + getBytesRead())
+//        }
+//      }
 
       private def updateCacheBytesRead(): Unit = {
         getCacheBytesReadCallback.foreach { getBytesRead =>
@@ -348,14 +354,14 @@ class HadoopRDD[K, V](
 
 
 
-      reader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier
+//      reader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier
 //      cacheReader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier
       // Register an on-task-completion callback to close the input stream.
       context.addTaskCompletionListener { context =>
         // Update the bytes read before closing is to make sure lingering bytesRead statistics in
         // this thread get correctly added.
-//        updateCacheBytesRead()
-        updateBytesRead()
+        updateCacheBytesRead()
+//        updateBytesRead()
         closeIfNeeded()
       }
 
@@ -367,8 +373,8 @@ class HadoopRDD[K, V](
 
       override def getNext(): (K, V) = {
         try {
-//          finished = !cacheReader.next(cachekey, cachevalue)
-          finished = !reader.next(key, value)
+          finished = !cacheReader.next(cachekey, cachevalue)
+//          finished = !reader.next(key, value)
         } catch {
           case e: IOException if ignoreCorruptFiles =>
             logWarning(s"Skipped the rest content in the corrupted file: ${split.inputSplit}", e)
@@ -378,41 +384,42 @@ class HadoopRDD[K, V](
           inputMetrics.incRecordsRead(1)
         }
         if (inputMetrics.recordsRead % SparkHadoopUtil.UPDATE_INPUT_METRICS_INTERVAL_RECORDS == 0) {
-          updateBytesRead()
+//          updateBytesRead()
+          updateCacheBytesRead()
         }
-//        (cachekey, cachevalue)
-        (key, value)
+        (cachekey, cachevalue)
+//        (key, value)
 
 
       }
 
       override def close(): Unit = {
-//        if (cacheReader != null) {
-        if (reader != null) {
+        if (cacheReader != null) {
+//        if (reader != null) {
           InputFileBlockHolder.unset()
           try {
-//            cacheReader.close()
-            reader.close()
+            cacheReader.close()
+//            reader.close()
           } catch {
             case e: Exception =>
               if (!ShutdownHookManager.inShutdown()) {
                 logWarning("Exception in RecordReader.close()", e)
               }
           } finally {
-            reader = null
-//            cacheReader = null
+//            reader = null
+            cacheReader = null
           }
-          if (getBytesReadCallback.isDefined) {
-//          if (getCacheBytesReadCallback.isDefined) {
-//            updateCacheBytesRead()
-            updateBytesRead()
-          } else if (split.inputSplit.value.isInstanceOf[FileSplit] ||
-                     split.inputSplit.value.isInstanceOf[CombineFileSplit]) {
+//          if (getBytesReadCallback.isDefined) {
+          if (getCacheBytesReadCallback.isDefined) {
+            updateCacheBytesRead()
+//            updateBytesRead()
+          } else if (cacheSplit.inputSplit.value.isInstanceOf[FileSplit] ||
+                     cacheSplit.inputSplit.value.isInstanceOf[CombineFileSplit]) {
             // If we can't get the bytes read from the FS stats, fall back to the split size,
             // which may be inaccurate.
             try {
 //              inputMetrics.incBytesRead(split.inputSplit.value.getLength)
-              inputMetrics.incBytesRead(split.inputSplit.value.getLength)
+              inputMetrics.incBytesRead(cacheSplit.inputSplit.value.getLength)
             } catch {
               case e: java.io.IOException =>
                 logWarning("Unable to get input size to set InputMetrics for task", e)

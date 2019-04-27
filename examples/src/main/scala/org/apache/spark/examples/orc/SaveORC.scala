@@ -44,5 +44,5 @@ object SaveORC {
   }
 }
 
-case class People(name:String,age:Long)
+case class People(name:String,age:String)
 case class Log(path:String,frequency: Int,time:String)
