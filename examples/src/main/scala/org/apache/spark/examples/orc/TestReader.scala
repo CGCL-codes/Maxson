@@ -12,7 +12,7 @@ object TestReader {
       .enableHiveSupport()
       .getOrCreate()
 
-        val log = spark.sql("select frequency,time from log")
+        val log = spark.sql("select path from log_path")
         log.collect()
          log.show(10)
   }
