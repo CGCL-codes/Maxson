@@ -19,6 +19,7 @@ package org.apache.spark.rdd
 
 import java.io.IOException
 import java.text.SimpleDateFormat
+import java.util
 import java.util.{Date, Locale}
 
 import scala.collection.immutable.Map
@@ -43,6 +44,8 @@ import org.apache.spark.rdd.HadoopRDD.HadoopMapPartitionsWithSplitRDD
 import org.apache.spark.scheduler.{HDFSCacheTaskLocation, HostTaskLocation}
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.util.{NextIterator, SerializableConfiguration, SerializableJobConf, ShutdownHookManager}
+
+import scala.collection.mutable
 
 /**
  * A Spark split class that wraps around a Hadoop InputSplit.
@@ -125,6 +128,8 @@ class HadoopRDD[K, V](
       valueClass,
       minPartitions)
   }
+
+
 
   protected val jobConfCacheKey: String = "rdd_%d_job_conf".format(id)
 
@@ -225,9 +230,9 @@ class HadoopRDD[K, V](
     array
   }
 
-  var cacheTable:String = "log_path"
-  var dirs:String = "file:/C:/Users/zyp/ali/spark/spark-warehouse/"+cacheTable
-  lazy val cacheSplits = getPartitions(dirs)
+//  var cacheTable:String = "log_path"
+//  var dirs:String = "file:/C:/Users/zyp/ali/spark/spark-warehouse/"+cacheTable
+  lazy val cacheSplits = getPartitions(cacheInfo.getCachePath)
 
   /**
     * zyp 获取cache文件的partitions
@@ -253,15 +258,15 @@ class HadoopRDD[K, V](
     array
   }
 
-  private val cacheJobConf = new SerializableJobConf(getCacheJobConf(dirs))
+  private lazy val cacheJobConf = new SerializableJobConf(getCacheJobConf(cacheInfo.getCachePath))
   def getCacheJobConf(dirs:String): JobConf ={
     val newJobConf = getCloneJobConf()
     newJobConf.set(FileInputFormat.INPUT_DIR,dirs)
-    newJobConf.set(OrcConf.INCLUDE_COLUMNS.getAttribute,"path")
+    newJobConf.set(OrcConf.INCLUDE_COLUMNS.getAttribute,cacheInfo.getJsonPath)
 
-    newJobConf.set(OrcConf.INCLUDE_COLUMNS.getHiveConfName,"0")
-    newJobConf.set("columns.types","string")
-    newJobConf.set("columns","path")
+    newJobConf.set(OrcConf.INCLUDE_COLUMNS.getHiveConfName,cacheInfo.getIndexOfJsonPath)
+//    newJobConf.set("columns.types","string")
+//    newJobConf.set("columns","path")
     newJobConf.set(ColumnProjectionUtils.READ_COLUMN_NAMES_CONF_STR,"path")
     return newJobConf
   }
@@ -276,6 +281,7 @@ class HadoopRDD[K, V](
       private val jobConf = getJobConf()
 
 
+
       private val inputMetrics = context.taskMetrics().inputMetrics
       private val existingBytesRead = inputMetrics.bytesRead
 
@@ -286,12 +292,7 @@ class HadoopRDD[K, V](
         case _ =>
           InputFileBlockHolder.unset()
       }
-//      cacheSplit.inputSplit.value match {
-//        case fs: FileSplit =>
-//          InputFileBlockHolder.set(fs.getPath.toString, fs.getStart, fs.getLength)
-//        case _ =>
-//          InputFileBlockHolder.unset()
-//      }
+
 
       // Find a function that will return the FileSystem bytes read by this thread. Do this before
       // creating RecordReader, because RecordReader's constructor might read some bytes
@@ -301,11 +302,6 @@ class HadoopRDD[K, V](
         case _ => None
       }
 
-//      private val getCacheBytesReadCallback: Option[() => Long] = cacheSplit.inputSplit.value match {
-//        case _: FileSplit | _: CombineFileSplit =>
-//          Some(SparkHadoopUtil.get.getFSBytesReadOnThreadCallback())
-//        case _ => None
-//      }
 
 
 
@@ -319,11 +315,6 @@ class HadoopRDD[K, V](
         }
       }
 
-//      private def updateCacheBytesRead(): Unit = {
-//        getCacheBytesReadCallback.foreach { getBytesRead =>
-//          inputMetrics.setBytesRead(existingBytesRead + getBytesRead())
-//        }
-//      }
 
       private var reader: RecordReader[K, V] = null
       private var cacheReader:RecordReader[K,V] = null
@@ -351,16 +342,12 @@ class HadoopRDD[K, V](
             finished = true
             null
         }
-
-
-
-//      reader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier
-//      cacheReader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier
+      cacheReader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier.getRowId
       // Register an on-task-completion callback to close the input stream.
       context.addTaskCompletionListener { context =>
         // Update the bytes read before closing is to make sure lingering bytesRead statistics in
         // this thread get correctly added.
-//        updateCacheBytesRead()
+
         updateBytesRead()
         closeIfNeeded()
       }
@@ -375,7 +362,6 @@ class HadoopRDD[K, V](
         try {
           !cacheReader.next(cachekey, cachevalue)
           finished = !reader.next(key, value)
-
         } catch {
           case e: IOException if ignoreCorruptFiles =>
             logWarning(s"Skipped the rest content in the corrupted file: ${split.inputSplit}", e)
@@ -386,7 +372,6 @@ class HadoopRDD[K, V](
         }
         if (inputMetrics.recordsRead % SparkHadoopUtil.UPDATE_INPUT_METRICS_INTERVAL_RECORDS == 0) {
           updateBytesRead()
-//          updateCacheBytesRead()
         }
 //        (cachekey, cachevalue)
 
@@ -416,6 +401,8 @@ class HadoopRDD[K, V](
             println("!!!!!!!!!!!!!!!!!!resder:!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"+reader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier.getRowId)
             println(s"************cacheSplit:***********${split.index}****${cacheSplit.inputSplit.value.getLength}")
             println("!!!!!!!!!!!!!!cacheReader:!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"+cacheReader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier.getRowId)
+            println(s"............................cacheInfo:${cacheInfo}")
+            println(s"..................${jobConf.get(ColumnProjectionUtils.READ_COLUMN_NAMES_CONF_STR)}")
           } catch {
             case e: Exception =>
               if (!ShutdownHookManager.inShutdown()) {

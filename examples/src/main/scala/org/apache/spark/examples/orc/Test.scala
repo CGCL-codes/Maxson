@@ -10,20 +10,21 @@ object Test {
       .config("spark.sql.catalogImplementation","hive")
       .enableHiveSupport()
       .getOrCreate()
-//    import spark.implicits._
-//    val  df = spark.sparkContext.textFile("examples/src/main/resources/people.txt").map(x => {
-//      val info = x.split(",")
-//      Path(info(0),info(1))
-//    }).toDF()
-//
-////    spark.sql("drop table path")
-//    df.write.format("hive").option("fileFormat","orc").saveAsTable("path")
+    import spark.implicits._
+    val  df = spark.sparkContext.textFile("examples/src/main/resources/people.txt").map(x => {
+      val info = x.split(",")
+      val json = info(1)+","+info(2)
+      People(info(0),json)
+    }).toDF()
+
+    spark.sql("drop table people")
+    df.write.format("hive").option("fileFormat","orc").saveAsTable("people")
 
     /****************测试读到iter最后一个元素的处理*************************/
 
-    val peo  = spark.sql("select time from path")
-    peo.collect()
-    peo.show()
+//    val peo  = spark.sql("select time from path")
+//    peo.collect()
+//    peo.show()
   }
 }
-case class Path(path:String,time:String)
+case class People(age:String,info:String)

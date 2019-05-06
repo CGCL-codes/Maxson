@@ -9,40 +9,24 @@ import org.apache.spark.sql.hive.client.HiveClientImpl
 /**
   * @author zyp
   */
-class CacheJson {
+//class CacheJson {
 
-  class WriteJson{
-    /**
-      * 对每张表的path提交一个查询任务并缓存
-      */
-    def CacheJsonPath(path:String) :Unit = {
-      val spark = SparkSession
-        .builder()
-        .master("local")
-        .config("spark.sql.catalogImplementation","hive")
-        .enableHiveSupport()
-        .getOrCreate()
-      val tableMap = spark.sparkContext.textFile(path).map(line => {
-        val jsonPathInfo = line.split(",")
-        val dbName = jsonPathInfo(0)
-        val tableName = jsonPathInfo(1)
-        val jsonPath = jsonPathInfo(2)
-        (dbName+"."+tableName,jsonPath)
-      }).reduceByKey((path1,path2) => {
-        path1+","+path2
-      }).collect().toMap
-      for(x <- tableMap){
-        val dbandTableName = x._1
-        val jsonPath = x._2
-        spark.sql(s"select ${jsonPath} from ${dbandTableName}").write.format("hive").option("fileFormat","orc").saveAsTable(s"${dbandTableName}")
-      }
-    }
-  }
 
-  class ReadJson(dbName:String,tableName:String,jsonPath:String){
+
+  class ReadJson(tableName:String,jsonPath:String){
     var hiveQlTable:Table= null
     var dir:String = null
     var indexOfJsonPath:Int = 0
+    val dbName =  "default"
+
+  def getJsonPath:String ={
+    jsonPath          //原表中的列名+_+原表中的jsonPath
+  }
+
+  def gettableName:String={
+    tableName        //原数据库名+_+原表名
+  }
+
 
     /**
       * @param sparkSession
@@ -51,6 +35,7 @@ class CacheJson {
     def jsonPathExists(sparkSession: SparkSession): Boolean={
       var flag:Boolean = false
       try {
+        //TODO dbname 是我们自己确定的
         val catalogTable = sparkSession.sessionState.catalog.externalCatalog.getTable(dbName, tableName)
         hiveQlTable = HiveClientImpl.toHiveTable(catalogTable)
         val columns = hiveQlTable.getMetadata.getProperty("columns").split(",").toList
@@ -65,7 +50,7 @@ class CacheJson {
       flag
     }
   }
-}
+//}
 
 
 

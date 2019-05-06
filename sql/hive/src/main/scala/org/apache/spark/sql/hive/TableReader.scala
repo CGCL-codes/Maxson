@@ -20,7 +20,6 @@ package org.apache.spark.sql.hive
 import java.util.Properties
 
 import scala.collection.JavaConverters._
-
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{Path, PathFilter}
 import org.apache.hadoop.hive.metastore.api.hive_metastoreConstants._
@@ -32,7 +31,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.{ObjectInspectorConverters,
 import org.apache.hadoop.hive.serde2.objectinspector.primitive._
 import org.apache.hadoop.io.Writable
 import org.apache.hadoop.mapred.{FileInputFormat, InputFormat, JobConf}
-
+import org.apache.spark.CacheInfo
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.internal.Logging
@@ -45,6 +44,8 @@ import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.unsafe.types.UTF8String
 import org.apache.spark.util.{SerializableConfiguration, Utils}
+
+import scala.collection.mutable
 
 /**
  * A trait for subclasses that handle table scans.
@@ -298,21 +299,37 @@ class HadoopTableReader(
 
     val initializeJobConfFunc = HadoopTableReader.initializeLocalJobConfFunc(path, tableDesc) _
 
-    val rdd = new HadoopRDD(
-      sparkSession.sparkContext,
-      _broadcastedHadoopConf.asInstanceOf[Broadcast[SerializableConfiguration]],
-      Some(initializeJobConfFunc),
-      inputFormatClass,
-      classOf[Writable],
-      classOf[Writable],
-      _minSplitsPerRDD)
-    // Only take the value (skip the key) because Hive works only with values.
+    val readJson = new ReadJson("log_path","path")   //注意参数的格式
+    var rdd:RDD[(Writable,Writable)] = null
+      rdd = new HadoopRDD(
+        sparkSession.sparkContext,
+        _broadcastedHadoopConf.asInstanceOf[Broadcast[SerializableConfiguration]],
+        Some(initializeJobConfFunc),
+        inputFormatClass,
+        classOf[Writable],
+        classOf[Writable],
+        _minSplitsPerRDD)
+      // Only take the value (skip the key) because Hive works only with values.
+    if(readJson.jsonPathExists(sparkSession)){
+//      val cacheInfo:mutable.HashMap[String,String] =mutable.HashMap.empty
+//      cacheInfo("cachePath") = readJson.dir
+//      cacheInfo("tableName") = readJson.gettableName
+//      cacheInfo("jsonPath") = readJson.getJsonPath
+//      cacheInfo("columns") = readJson.hiveQlTable.getMetadata.getProperty("columns")
+//      cacheInfo("indexOfJsonPath") = readJson.indexOfJsonPath.toString
+//
+      rdd.cacheInfo = new CacheInfo(
+                        readJson.dir,
+                        readJson.gettableName,
+                        readJson.getJsonPath,
+                        readJson.hiveQlTable.getMetadata.getProperty("columns"),
+                        readJson.indexOfJsonPath.toString)
+    }
     rdd.map(_._2)
   }
 }
 
 private[hive] object HiveTableUtil {
-
   // copied from PlanUtils.configureJobPropertiesForStorageHandler(tableDesc)
   // that calls Hive.get() which tries to access metastore, but it's not valid in runtime
   // it would be fixed in next version of hive but till then, we should use this instead
