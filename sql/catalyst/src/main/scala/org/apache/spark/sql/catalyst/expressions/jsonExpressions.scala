@@ -105,6 +105,19 @@ private[this] object SharedFactory {
   // Enabled for Hive compatibility
   jsonFactory.enable(JsonParser.Feature.ALLOW_UNQUOTED_CONTROL_CHARS)
 }
+case class OptimizeGetJsonObject(json:Expression, path:Expression)  extends BinaryExpression with ExpectsInputTypes with CodegenFallback{
+  override def eval(input: InternalRow):Any = {
+    json.eval(input).asInstanceOf[UTF8String]
+  }
+
+  override def left: Expression = json
+  override def right: Expression = path
+  override def inputTypes: Seq[DataType] = Seq(StringType, StringType)
+  override def dataType: DataType = StringType
+  override def nullable: Boolean = true
+  override def prettyName: String = "get_json_object"
+}
+
 
 /**
  * Extracts json object from a json string based on json path specified, and returns json string

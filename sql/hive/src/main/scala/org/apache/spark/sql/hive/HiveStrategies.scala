@@ -21,13 +21,12 @@ import java.io.IOException
 import java.util.Locale
 
 import org.apache.hadoop.fs.{FileSystem, Path}
-
 import org.apache.spark.sql._
+import org.apache.spark.sql.catalyst.CatalystTypeConverters
 import org.apache.spark.sql.catalyst.catalog._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.planning._
-import org.apache.spark.sql.catalyst.plans.logical.{InsertIntoDir, InsertIntoTable, LogicalPlan,
-    ScriptTransformation}
+import org.apache.spark.sql.catalyst.plans.logical.{InsertIntoDir, InsertIntoTable, LogicalPlan, ScriptTransformation}
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.command.{CreateTableCommand, DDLUtils}
@@ -35,6 +34,9 @@ import org.apache.spark.sql.execution.datasources.{CreateTable, LogicalRelation}
 import org.apache.spark.sql.execution.datasources.parquet.{ParquetFileFormat, ParquetOptions}
 import org.apache.spark.sql.hive.execution._
 import org.apache.spark.sql.internal.{HiveSerDe, SQLConf}
+import org.apache.spark.sql.types.StringType
+
+import scala.collection.mutable
 
 
 /**
@@ -248,6 +250,12 @@ private[hive] trait HiveStrategies {
    * applied.
    */
   object HiveTableScans extends Strategy {
+    //_1 relation
+    //_2 col name
+    //_3 json path
+    private type JsonInfo = (HiveTableRelation, AttributeReference, String)
+    private val stringConverter = CatalystTypeConverters.createToScalaConverter(StringType)
+
     def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
       case PhysicalOperation(projectList, predicates, relation: HiveTableRelation) =>
         // Filter out all predicates that only deal with partition keys, these are given to the
@@ -257,14 +265,49 @@ private[hive] trait HiveStrategies {
           !predicate.references.isEmpty &&
           predicate.references.subsetOf(partitionKeyIds)
         }
+        //collect json info
+        val (jsonInfoSetInProject, jsonInfoSetInFilter) = collectJsonInfo(projectList, otherPredicates, relation)
+        println(s"jsonInfoInProject: $jsonInfoSetInProject |||| jsonInfoSetInFilter: $jsonInfoSetInFilter")
+
+        val newProjectList = replaceJsonExpr(projectList)
 
         pruneFilterProject(
-          projectList,
+          newProjectList,
           otherPredicates,
           identity[Seq[Expression]],
           HiveTableScanExec(_, relation, pruningPredicates)(sparkSession)) :: Nil
       case _ =>
         Nil
     }
+
+    private def collectJsonInfo(projectList: Seq[NamedExpression],
+                                filterPredicates: Seq[Expression],
+                                relation: HiveTableRelation): (mutable.Set[JsonInfo], mutable.Set[JsonInfo]) = {
+
+      val jsonInfoSetInProject = mutable.Set[JsonInfo]()
+      val jsonInfoSetInFilter = mutable.Set[JsonInfo]()
+      projectList.foreach(collect(_, jsonInfoSetInProject, relation))
+      filterPredicates.foreach(collect(_, jsonInfoSetInFilter, relation))
+      (jsonInfoSetInProject, jsonInfoSetInFilter)
+    }
+
+    private def replaceJsonExpr(projectList: Seq[NamedExpression]) = {
+      projectList.map(doReplaceJson(_)).asInstanceOf[Seq[NamedExpression]]
+    }
+
+    private def doReplaceJson(expr: Expression) = {
+      expr.transform {
+        case GetJsonObject(r: AttributeReference, Literal(v, StringType)) =>
+          OptimizeGetJsonObject(r, Literal(v,StringType))
+      }
+    }
+
+    private def collect(expr: Expression, set: mutable.Set[JsonInfo], relation: HiveTableRelation): Unit = {
+      expr.foreach {
+        case GetJsonObject(r: AttributeReference, Literal(v, StringType)) => set.add((relation, r, stringConverter(v).asInstanceOf[String]))
+        case _ => //do nothing
+      }
+    }
+
   }
 }
