@@ -18,7 +18,6 @@
 package org.apache.spark.sql.hive.execution
 
 import scala.collection.JavaConverters._
-
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hive.ql.metadata.{Partition => HivePartition}
 import org.apache.hadoop.hive.ql.plan.TableDesc
@@ -26,7 +25,6 @@ import org.apache.hadoop.hive.serde.serdeConstants
 import org.apache.hadoop.hive.serde2.objectinspector._
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils.ObjectInspectorCopyOption
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils
-
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
@@ -39,8 +37,10 @@ import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.hive._
 import org.apache.spark.sql.hive.client.HiveClientImpl
 import org.apache.spark.sql.internal.SQLConf
-import org.apache.spark.sql.types.{BooleanType, DataType}
+import org.apache.spark.sql.types.{BooleanType, DataType, MetadataBuilder}
 import org.apache.spark.util.Utils
+
+import scala.collection.mutable
 
 /**
  * The Hive table scan operator.  Column and partition pruning are both handled.
@@ -69,10 +69,36 @@ case class HiveTableScanExec(
     AttributeSet(partitionPruningPred.flatMap(_.references))
 
   private val originalAttributes = AttributeMap(relation.output.map(a => a -> a))
-
+  private val originalAttributesIncludeJson = mutable.HashMap.empty[ExprId, Attribute]
+  relation.output.foreach(a => originalAttributesIncludeJson.update(a.exprId, a))
   override val output: Seq[Attribute] = {
     // Retrieve the original attributes based on expression ID so that capitalization matches.
-    requestedAttributes.map(originalAttributes)
+    //requestedAttributes.map(originalAttributes)
+    requestedAttributes.map { attr =>
+      originalAttributesIncludeJson.get(attr.exprId) match {
+        case Some(attribute) => attribute
+        case None =>
+          assert(attr.name.contains(":"))
+          val function = attr.metadata.getString("function")
+          val rootId = ExprId(attr.metadata.getLong("rootId"))
+          val root = originalAttributesIncludeJson(rootId).name
+          val field = attr.metadata.getString("field")
+          val castTypeSuffix = if (attr.metadata.contains("castType")) {
+            s":${attr.metadata.getString("castType")}"
+          } else {
+            ""
+          }
+
+          val name = s"$function:$root:$field$castTypeSuffix"
+          val metadata = new MetadataBuilder()
+            .withMetadata(attr.metadata)
+            .putString("root", root)
+            .build()
+          val newAttr = attr.withName(name).withMetadata(metadata)
+          originalAttributesIncludeJson.update(newAttr.exprId, newAttr)
+          newAttr
+      }
+    }
   }
 
   // Bind all partition key attribute references in the partition pruning predicate for later
