@@ -89,18 +89,7 @@ object BindReferences extends Logging {
       allowFailures: Boolean = false): A = {
     expression.transform { case a: AttributeReference =>
       attachTree(a, "Binding attribute") {
-        var ordinal = -1
-        var find = false
-        if(a.name.contains(":")){
-          for(i <- input.attrs.indices){
-            if(input.attrs(i).exprId.id == a.metadata.getLong("rootId") && !find){
-              ordinal = i
-              find = true
-            }
-          }
-        }else {
-          ordinal = input.indexOf(a.exprId)
-        }
+        val ordinal = input.indexOf(a.exprId)
         if (ordinal == -1) {
           if (allowFailures) {
             a

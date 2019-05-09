@@ -53,7 +53,8 @@ private[hive]
 case class HiveTableScanExec(
     requestedAttributes: Seq[Attribute],
     relation: HiveTableRelation,
-    partitionPruningPred: Seq[Expression])(
+    partitionPruningPred: Seq[Expression],
+    originalRequestedAttributes: Seq[Attribute] = Seq.empty[Attribute])(
     @transient private val sparkSession: SparkSession)
   extends LeafExecNode with CastSupport {
 
@@ -76,7 +77,7 @@ case class HiveTableScanExec(
     //requestedAttributes.map(originalAttributes)
     requestedAttributes.map { attr =>
       originalAttributesIncludeJson.get(attr.exprId) match {
-        case Some(attribute) => attribute
+        case Some(attribute) => originalAttributes(attribute)
         case None =>
           assert(attr.name.contains(":"))
           val function = attr.metadata.getString("function")
@@ -100,6 +101,11 @@ case class HiveTableScanExec(
       }
     }
   }
+  //json列的名字 s"$function:$root:$field$castTypeSuffix"
+  //其余列的名字就是其余列
+  private val columsNames = schema.fieldNames
+  private val (jsonFiledSchema, tableSchema) = schema.fields.partition(_.name.contains(":"))
+
 
   // Bind all partition key attribute references in the partition pruning predicate for later
   // evaluation.
@@ -140,6 +146,7 @@ case class HiveTableScanExec(
   private def addColumnMetadataToConf(hiveConf: Configuration): Unit = {
     // Specifies needed column IDs for those non-partitioning columns.
     val columnOrdinals = AttributeMap(relation.dataCols.zipWithIndex)
+    //GetJsonObject引用的列不会被列到neededColumnIDs
     val neededColumnIDs = output.flatMap(columnOrdinals.get).map(o => o: Integer)
 
     HiveShim.appendReadColumns(hiveConf, neededColumnIDs, output.map(_.name))

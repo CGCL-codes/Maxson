@@ -21,7 +21,7 @@ import java.io.IOException
 import java.util.Locale
 
 import org.apache.hadoop.fs.{FileSystem, Path}
-import org.apache.spark.sql._
+import org.apache.spark.sql.{Strategy, _}
 import org.apache.spark.sql.catalyst.CatalystTypeConverters
 import org.apache.spark.sql.catalyst.catalog._
 import org.apache.spark.sql.catalyst.expressions._
@@ -289,15 +289,12 @@ private[hive] trait HiveStrategies {
         println(s"scanProjectList: ${scanProjectList}")
         println(s"scanFilters: ${scanFilters}")
 
-        val projectSet = AttributeSet(scanProjectList.flatMap(_.references))
-
-        println(s"projectSet: ${projectSet}")
 
         pruneFilterProject(
           scanProjectList,
           otherPredicates,
           identity[Seq[Expression]],
-          HiveTableScanExec(_, relation, pruningPredicates)(sparkSession), Some(projectList)) :: Nil
+          HiveTableScanExec(_, relation, pruningPredicates,projectList.flatMap(_.references))(sparkSession)) :: Nil
       case _ =>
         Nil
     }
@@ -311,15 +308,17 @@ private[hive] trait HiveStrategies {
       val attrName = s"$function:${root.name}:$field"
       val key = s"${root.exprId}$field"
       val qualifier = s"${root.qualifier.fold("")(_ + ".")}${root.name}"
+      //TODO: add castType
       val metadata = new MetadataBuilder()
         .putString("function", function)
         .putLong("rootId", root.exprId.id)
         .putString("field", field)
+        .putString("root",root.name)
         .build()
       attrMap.getOrElseUpdate(key, AttributeReference(
         attrName, StringType, metadata = metadata)(qualifier = Some(qualifier)))
     }
-
+    //把GetJsonObject变成AttributeReference
     private def replaceJson(expr: Expression, attrMap: ReplaceMap): Option[AttributeReference] = {
       expr match {
         case GetJsonObject(r: AttributeReference, Literal(v, StringType)) =>
