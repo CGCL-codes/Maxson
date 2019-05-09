@@ -49,6 +49,20 @@ import org.apache.spark.sql.hive.client.HiveClientImpl
       }
       flag
     }
+
+  def jsonPathExists(sparkSession: SparkSession,tableName:String,jsonPath:String): Boolean={
+    var flag:Boolean = false
+    try {
+      //TODO dbname 是我们自己确定的
+      val catalogTable = sparkSession.sessionState.catalog.externalCatalog.getTable(dbName, tableName)
+      hiveQlTable = HiveClientImpl.toHiveTable(catalogTable)
+      val columns = hiveQlTable.getMetadata.getProperty("columns").split(",").toList
+      if(columns.contains(jsonPath)) flag = true
+    }catch{
+      case e:Exception => println(s"Table or view '$tableName' not found in database '$dbName'")
+    }
+    flag
+  }
   }
 //}
 
