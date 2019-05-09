@@ -299,7 +299,7 @@ class HadoopTableReader(
 
     val initializeJobConfFunc = HadoopTableReader.initializeLocalJobConfFunc(path, tableDesc) _
 
-    val readJson = new ReadJson("log_path","path")   //注意参数的格式
+    val readJson = new ReadJson("newLog_path","path")   //注意参数的格式
     var rdd:RDD[(Writable,Writable)] = null
       rdd = new HadoopRDD(
         sparkSession.sparkContext,

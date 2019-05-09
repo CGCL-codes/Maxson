@@ -263,7 +263,6 @@ class HadoopRDD[K, V](
     val newJobConf = getCloneJobConf()
     newJobConf.set(FileInputFormat.INPUT_DIR,dirs)
     newJobConf.set(OrcConf.INCLUDE_COLUMNS.getAttribute,cacheInfo.getJsonPath)
-
     newJobConf.set(OrcConf.INCLUDE_COLUMNS.getHiveConfName,cacheInfo.getIndexOfJsonPath)
 //    newJobConf.set("columns.types","string")
 //    newJobConf.set("columns","path")
@@ -272,11 +271,15 @@ class HadoopRDD[K, V](
   }
 
 
+
   override def compute(theSplit: Partition, context: TaskContext): InterruptibleIterator[(K, V)] = {
     val iter = new NextIterator[(K, V)] {
 
       private val split = theSplit.asInstanceOf[HadoopPartition]
-      val cacheSplit = cacheSplits(split.index).asInstanceOf[HadoopPartition]
+      var cacheSplit:HadoopPartition = null
+      if(cacheInfo != null){
+        println(s"$cacheInfo***************************************************")
+        cacheSplit = cacheSplits(split.index).asInstanceOf[HadoopPartition]}
       logInfo("Input split: " + split.inputSplit)
       private val jobConf = getJobConf()
 
@@ -323,15 +326,17 @@ class HadoopRDD[K, V](
         new SimpleDateFormat("yyyyMMddHHmmss", Locale.US).format(createTime),
         context.stageId, theSplit.index, context.attemptNumber, jobConf)
 
+     if(cacheInfo != null){
+       cacheReader = try{
+         inputFormat.getRecordReader(cacheSplit.inputSplit.value,cacheJobConf.value,Reporter.NULL)
+       }catch {
+         case e: IOException if ignoreCorruptFiles =>
+           logWarning(s"Skipped the rest content in the corrupted file: ${split.inputSplit}", e)
+           finished = true
+           null
+       }
+     }
 
-      cacheReader = try{
-        inputFormat.getRecordReader(cacheSplit.inputSplit.value,cacheJobConf.value,Reporter.NULL)
-      }catch {
-        case e: IOException if ignoreCorruptFiles =>
-          logWarning(s"Skipped the rest content in the corrupted file: ${split.inputSplit}", e)
-          finished = true
-          null
-      }
 
       reader =
         try {
@@ -342,12 +347,11 @@ class HadoopRDD[K, V](
             finished = true
             null
         }
-      cacheReader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier.getRowId
+//      cacheReader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier.getRowId
       // Register an on-task-completion callback to close the input stream.
       context.addTaskCompletionListener { context =>
         // Update the bytes read before closing is to make sure lingering bytesRead statistics in
         // this thread get correctly added.
-
         updateBytesRead()
         closeIfNeeded()
       }
@@ -355,12 +359,13 @@ class HadoopRDD[K, V](
       private val key: K = if (reader == null) null.asInstanceOf[K] else reader.createKey()
       private val value: V = if (reader == null) null.asInstanceOf[V] else reader.createValue()
 
+
       private val cachekey: K = if (cacheReader == null) null.asInstanceOf[K] else cacheReader.createKey()
       private val cachevalue: V = if (cacheReader == null) null.asInstanceOf[V] else cacheReader.createValue()
 
       override def getNext(): (K, V) = {
         try {
-          !cacheReader.next(cachekey, cachevalue)
+        if(cacheReader != null) cacheReader.next(cachekey, cachevalue)
           finished = !reader.next(key, value)
         } catch {
           case e: IOException if ignoreCorruptFiles =>
@@ -387,7 +392,6 @@ class HadoopRDD[K, V](
 //        val args: Array[Object] = Array(2.asInstanceOf[Object],fields(0))
 //        method.invoke(value,args:_*)
         (key,value)
-
       }
 
       override def close(): Unit = {
@@ -395,14 +399,14 @@ class HadoopRDD[K, V](
         if (reader != null) {
           InputFileBlockHolder.unset()
           try {
-            cacheReader.close()
+             if(cacheReader != null) cacheReader.close()
             reader.close()
             println(s"**************split:*********${split.index}****${split.inputSplit.value.getLength}")
-            println("!!!!!!!!!!!!!!!!!!resder:!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"+reader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier.getRowId)
-            println(s"************cacheSplit:***********${split.index}****${cacheSplit.inputSplit.value.getLength}")
-            println("!!!!!!!!!!!!!!cacheReader:!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"+cacheReader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier.getRowId)
-            println(s"............................cacheInfo:${cacheInfo}")
-            println(s"..................${jobConf.get(ColumnProjectionUtils.READ_COLUMN_NAMES_CONF_STR)}")
+//            println("!!!!!!!!!!!!!!!!!!resder:!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"+reader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier.getRowId)
+//            println(s"************cacheSplit:***********${split.index}****${cacheSplit.inputSplit.value.getLength}")
+//            println("!!!!!!!!!!!!!!cacheReader:!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"+cacheReader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier.getRowId)
+//            println(s"............................cacheInfo:${cacheInfo}")
+//            println(s"..................${jobConf.get(ColumnProjectionUtils.READ_COLUMN_NAMES_CONF_STR)}")
           } catch {
             case e: Exception =>
               if (!ShutdownHookManager.inShutdown()) {
