@@ -81,7 +81,6 @@ class SparkPlanner(
       filterPredicates: Seq[Expression],
       prunePushedDownFilters: Seq[Expression] => Seq[Expression],
       scanBuilder: Seq[Attribute] => SparkPlan): SparkPlan = {
-
     val projectSet = AttributeSet(projectList.flatMap(_.references))
     val filterSet = AttributeSet(filterPredicates.flatMap(_.references))
     val filterCondition: Option[Expression] =
@@ -101,8 +100,9 @@ class SparkPlanner(
       val scan = scanBuilder(projectList.asInstanceOf[Seq[Attribute]])
       filterCondition.map(FilterExec(_, scan)).getOrElse(scan)
     } else {
-      val scan = scanBuilder((projectSet ++ filterSet).toSeq)
-      ProjectExec(projectList, filterCondition.map(FilterExec(_, scan)).getOrElse(scan))
+      //projectSet包含了GetJsonObject转换成的AttributeReference，传入HiveTableScanExec
+        val scan = scanBuilder((projectSet ++ filterSet).toSeq)
+        ProjectExec(projectList, filterCondition.map(FilterExec(_, scan)).getOrElse(scan))
     }
   }
 }
