@@ -43,18 +43,18 @@ import org.apache.spark.util.Utils
 import scala.collection.mutable
 
 /**
- * The Hive table scan operator.  Column and partition pruning are both handled.
- *
- * @param requestedAttributes Attributes to be fetched from the Hive table.
- * @param relation The Hive table be scanned.
- * @param partitionPruningPred An optional partition pruning predicate for partitioned table.
- */
+  * The Hive table scan operator.  Column and partition pruning are both handled.
+  *
+  * @param requestedAttributes  Attributes to be fetched from the Hive table.
+  * @param relation             The Hive table be scanned.
+  * @param partitionPruningPred An optional partition pruning predicate for partitioned table.
+  */
 private[hive]
 case class HiveTableScanExec(
-    requestedAttributes: Seq[Attribute],
-    relation: HiveTableRelation,
-    partitionPruningPred: Seq[Expression])(
-    @transient private val sparkSession: SparkSession)
+                              requestedAttributes: Seq[Attribute],
+                              relation: HiveTableRelation,
+                              partitionPruningPred: Seq[Expression])(
+                              @transient private val sparkSession: SparkSession)
   extends LeafExecNode with CastSupport {
 
   require(partitionPruningPred.isEmpty || relation.isPartitioned,
@@ -143,6 +143,26 @@ case class HiveTableScanExec(
   }
 
   private def addColumnMetadataToConf(hiveConf: Configuration): Unit = {
+    //    spark.hive.cache.json.table "table_name"
+    //    spark.hive.cache.json.database "database"
+    //    spark.hive.cache.json.keys  "key0,key1,key2"
+    //    spark.hive.cache.json.cols "col0,col1,col2"
+    //    spark.hive.cache.json.col.order "col0,col1,col2,col3,col4,col5"
+    if (sparkSession.sparkContext.conf.getBoolean("spark.sql.json.optimize", false)) {
+      conf.setConfString("spark.hive,cache.json.database", relation.tableMeta.database)
+      conf.setConfString("spark.hive.cache.json.table", relation.tableMeta.identifier.table)
+      val jsonKeys = jsonFiledSchema.map(_.metadata.getString("field")).mkString(",")
+      conf.setConfString("spark.hive.cache.json.keys", jsonKeys)
+      val jsonCols = jsonFiledSchema.map(_.metadata.getString("root")).mkString(",")
+      conf.setConfString("spark.hive.cache.json.cols", jsonCols)
+      val colOrder = schema.map(item => if (item.name.contains(":")) {
+        item.metadata.getString("field")
+      } else {
+        item.name
+      }).mkString(",")
+      conf.setConfString("spark.hive.cache.json.cols", colOrder)
+      logInfo(s"database: ${relation.tableMeta.database} table: ${relation.tableMeta.identifier.table}  jsonKeys: $jsonKeys jsonCols: $jsonCols colOrder: $colOrder")
+    }
     // Specifies needed column IDs for those non-partitioning columns.
     val columnOrdinals = AttributeMap(relation.dataCols.zipWithIndex)
     //GetJsonObject引用的列不会被列到neededColumnIDs
@@ -171,11 +191,11 @@ case class HiveTableScanExec(
   }
 
   /**
-   * Prunes partitions not involve the query plan.
-   *
-   * @param partitions All partitions of the relation.
-   * @return Partitions that are involved in the query plan.
-   */
+    * Prunes partitions not involve the query plan.
+    *
+    * @param partitions All partitions of the relation.
+    * @return Partitions that are involved in the query plan.
+    */
   private[hive] def prunePartitions(partitions: Seq[HivePartition]) = {
     boundPruningPred match {
       case None => partitions
@@ -196,7 +216,7 @@ case class HiveTableScanExec(
   @transient lazy val rawPartitions = {
     val prunedPartitions =
       if (sparkSession.sessionState.conf.metastorePartitionPruning &&
-          partitionPruningPred.size > 0) {
+        partitionPruningPred.size > 0) {
         // Retrieve the original attributes based on expression ID so that capitalization matches.
         val normalizedFilters = partitionPruningPred.map(_.transform {
           case a: AttributeReference => originalAttributes(a)
