@@ -53,8 +53,7 @@ private[hive]
 case class HiveTableScanExec(
     requestedAttributes: Seq[Attribute],
     relation: HiveTableRelation,
-    partitionPruningPred: Seq[Expression],
-    originalRequestedAttributes: Seq[Attribute] = Seq.empty[Attribute])(
+    partitionPruningPred: Seq[Expression])(
     @transient private val sparkSession: SparkSession)
   extends LeafExecNode with CastSupport {
 

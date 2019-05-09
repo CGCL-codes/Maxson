@@ -289,17 +289,17 @@ private[hive] trait HiveStrategies {
 
         //        println(s"scanProjectList: ${scanProjectList}")
         //        println(s"scanFilters: ${scanFilters}")
-        val acutalProjectList = if (sparkSession.sparkContext.conf.getBoolean("spark.sql.json.optimize", false)) {
-            scanProjectList
-        }else{
+        val actualProjectList = if (sparkSession.sparkContext.conf.getBoolean("spark.sql.json.optimize", false)) {
+          scanProjectList
+        } else {
           projectList
         }
 
         pruneFilterProject(
-          acutalProjectList,
+          actualProjectList,
           otherPredicates,
           identity[Seq[Expression]],
-          HiveTableScanExec(_, relation, pruningPredicates, projectList.flatMap(_.references))(sparkSession)) :: Nil
+          HiveTableScanExec(_, relation, pruningPredicates)(sparkSession)) :: Nil
       case _ =>
         Nil
     }
