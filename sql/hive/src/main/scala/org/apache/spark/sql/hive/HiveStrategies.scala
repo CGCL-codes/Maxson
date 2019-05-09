@@ -21,13 +21,12 @@ import java.io.IOException
 import java.util.Locale
 
 import org.apache.hadoop.fs.{FileSystem, Path}
-
-import org.apache.spark.sql._
+import org.apache.spark.sql.{Strategy, _}
+import org.apache.spark.sql.catalyst.CatalystTypeConverters
 import org.apache.spark.sql.catalyst.catalog._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.planning._
-import org.apache.spark.sql.catalyst.plans.logical.{InsertIntoDir, InsertIntoTable, LogicalPlan,
-    ScriptTransformation}
+import org.apache.spark.sql.catalyst.plans.logical.{InsertIntoDir, InsertIntoTable, LogicalPlan, ScriptTransformation}
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.command.{CreateTableCommand, DDLUtils}
@@ -35,12 +34,16 @@ import org.apache.spark.sql.execution.datasources.{CreateTable, LogicalRelation}
 import org.apache.spark.sql.execution.datasources.parquet.{ParquetFileFormat, ParquetOptions}
 import org.apache.spark.sql.hive.execution._
 import org.apache.spark.sql.internal.{HiveSerDe, SQLConf}
+import org.apache.spark.sql.types.{MetadataBuilder, StringType}
+
+import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 
 /**
- * Determine the database, serde/format and schema of the Hive serde table, according to the storage
- * properties.
- */
+  * Determine the database, serde/format and schema of the Hive serde table, according to the storage
+  * properties.
+  */
 class ResolveHiveSerdeTable(session: SparkSession) extends Rule[LogicalPlan] {
   private def determineHiveSerde(table: CatalogTable): CatalogTable = {
     if (table.storage.serde.nonEmpty) {
@@ -88,7 +91,7 @@ class ResolveHiveSerdeTable(session: SparkSession) extends Rule[LogicalPlan] {
   }
 
   override def apply(plan: LogicalPlan): LogicalPlan = plan transformUp {
-    case c @ CreateTable(t, _, query) if DDLUtils.isHiveTable(t) =>
+    case c@CreateTable(t, _, query) if DDLUtils.isHiveTable(t) =>
       // Finds the database name if the name does not exist.
       val dbName = t.identifier.database.getOrElse(session.catalog.currentDatabase)
       val table = t.copy(identifier = t.identifier.copy(database = Some(dbName)))
@@ -116,7 +119,7 @@ class ResolveHiveSerdeTable(session: SparkSession) extends Rule[LogicalPlan] {
 class DetermineTableStats(session: SparkSession) extends Rule[LogicalPlan] {
   override def apply(plan: LogicalPlan): LogicalPlan = plan transformUp {
     case relation: HiveTableRelation
-        if DDLUtils.isHiveTable(relation.tableMeta) && relation.tableMeta.stats.isEmpty =>
+      if DDLUtils.isHiveTable(relation.tableMeta) && relation.tableMeta.stats.isEmpty =>
       val table = relation.tableMeta
       val sizeInBytes = if (session.sessionState.conf.fallBackToHdfsForStatsEnabled) {
         try {
@@ -139,15 +142,15 @@ class DetermineTableStats(session: SparkSession) extends Rule[LogicalPlan] {
 }
 
 /**
- * Replaces generic operations with specific variants that are designed to work with Hive.
- *
- * Note that, this rule must be run after `PreprocessTableCreation` and
- * `PreprocessTableInsertion`.
- */
+  * Replaces generic operations with specific variants that are designed to work with Hive.
+  *
+  * Note that, this rule must be run after `PreprocessTableCreation` and
+  * `PreprocessTableInsertion`.
+  */
 object HiveAnalysis extends Rule[LogicalPlan] {
   override def apply(plan: LogicalPlan): LogicalPlan = plan transformUp {
     case InsertIntoTable(r: HiveTableRelation, partSpec, query, overwrite, ifPartitionNotExists)
-        if DDLUtils.isHiveTable(r.tableMeta) =>
+      if DDLUtils.isHiveTable(r.tableMeta) =>
       InsertIntoHiveTable(r.tableMeta, partSpec, query, overwrite,
         ifPartitionNotExists, query.output)
 
@@ -160,7 +163,7 @@ object HiveAnalysis extends Rule[LogicalPlan] {
       CreateHiveTableAsSelectCommand(tableDesc, query, query.output, mode)
 
     case InsertIntoDir(isLocal, storage, provider, child, overwrite)
-        if DDLUtils.isHiveTable(provider) =>
+      if DDLUtils.isHiveTable(provider) =>
       val outputPath = new Path(storage.locationUri.get)
       if (overwrite) DDLUtils.verifyNotReadPath(child, outputPath)
 
@@ -169,17 +172,17 @@ object HiveAnalysis extends Rule[LogicalPlan] {
 }
 
 /**
- * Relation conversion from metastore relations to data source relations for better performance
- *
- * - When writing to non-partitioned Hive-serde Parquet/Orc tables
- * - When scanning Hive-serde Parquet/ORC tables
- *
- * This rule must be run before all other DDL post-hoc resolution rules, i.e.
- * `PreprocessTableCreation`, `PreprocessTableInsertion`, `DataSourceAnalysis` and `HiveAnalysis`.
- */
+  * Relation conversion from metastore relations to data source relations for better performance
+  *
+  * - When writing to non-partitioned Hive-serde Parquet/Orc tables
+  * - When scanning Hive-serde Parquet/ORC tables
+  *
+  * This rule must be run before all other DDL post-hoc resolution rules, i.e.
+  * `PreprocessTableCreation`, `PreprocessTableInsertion`, `DataSourceAnalysis` and `HiveAnalysis`.
+  */
 case class RelationConversions(
-    conf: SQLConf,
-    sessionCatalog: HiveSessionCatalog) extends Rule[LogicalPlan] {
+                                conf: SQLConf,
+                                sessionCatalog: HiveSessionCatalog) extends Rule[LogicalPlan] {
   private def isConvertible(relation: HiveTableRelation): Boolean = {
     val serde = relation.tableMeta.storage.serde.getOrElse("").toLowerCase(Locale.ROOT)
     serde.contains("parquet") && conf.getConf(HiveUtils.CONVERT_METASTORE_PARQUET) ||
@@ -216,13 +219,13 @@ case class RelationConversions(
       // Write path
       case InsertIntoTable(r: HiveTableRelation, partition, query, overwrite, ifPartitionNotExists)
         // Inserting into partitioned table is not supported in Parquet/Orc data source (yet).
-          if query.resolved && DDLUtils.isHiveTable(r.tableMeta) &&
-            !r.isPartitioned && isConvertible(r) =>
+        if query.resolved && DDLUtils.isHiveTable(r.tableMeta) &&
+          !r.isPartitioned && isConvertible(r) =>
         InsertIntoTable(convert(r), partition, query, overwrite, ifPartitionNotExists)
 
       // Read path
       case relation: HiveTableRelation
-          if DDLUtils.isHiveTable(relation.tableMeta) && isConvertible(relation) =>
+        if DDLUtils.isHiveTable(relation.tableMeta) && isConvertible(relation) =>
         convert(relation)
     }
   }
@@ -244,10 +247,20 @@ private[hive] trait HiveStrategies {
   }
 
   /**
-   * Retrieves data using a HiveTableScan.  Partition pruning predicates are also detected and
-   * applied.
-   */
+    * Retrieves data using a HiveTableScan.  Partition pruning predicates are also detected and
+    * applied.
+    */
   object HiveTableScans extends Strategy {
+    //_1 relation
+    //_2 col name
+    //_3 json path
+    private type JsonInfo = (HiveTableRelation, AttributeReference, String)
+    private val stringConverter = CatalystTypeConverters.createToScalaConverter(StringType)
+
+    private type ReplaceMap = mutable.HashMap[String, AttributeReference]
+    private type ReplaceFunc = (Expression, ReplaceMap) => Option[AttributeReference]
+
+
     def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
       case PhysicalOperation(projectList, predicates, relation: HiveTableRelation) =>
         // Filter out all predicates that only deal with partition keys, these are given to the
@@ -255,16 +268,117 @@ private[hive] trait HiveStrategies {
         val partitionKeyIds = AttributeSet(relation.partitionCols)
         val (pruningPredicates, otherPredicates) = predicates.partition { predicate =>
           !predicate.references.isEmpty &&
-          predicate.references.subsetOf(partitionKeyIds)
+            predicate.references.subsetOf(partitionKeyIds)
+        }
+        //collect json info
+        //        val (jsonInfoSetInProject, jsonInfoSetInFilter) = collectJsonInfo(projectList, otherPredicates, relation)
+        //        println(s"jsonInfoInProject: $jsonInfoSetInProject |||| jsonInfoSetInFilter: $jsonInfoSetInFilter")
+
+
+        val (scanProjectList, scanFilters) = {
+          val conf = sparkSession.sparkContext.conf
+          val funcs = ArrayBuffer.empty[ReplaceFunc]
+          funcs.append(replaceJson)
+          if (funcs.nonEmpty) {
+            flattenProject(projectList, predicates, funcs)
+          } else {
+            (projectList, predicates)
+          }
+        }
+
+
+        //        println(s"scanProjectList: ${scanProjectList}")
+        //        println(s"scanFilters: ${scanFilters}")
+        val acutalProjectList = if (sparkSession.sparkContext.conf.getBoolean("spark.sql.json.optimize", false)) {
+            scanProjectList
+        }else{
+          projectList
         }
 
         pruneFilterProject(
-          projectList,
+          acutalProjectList,
           otherPredicates,
           identity[Seq[Expression]],
-          HiveTableScanExec(_, relation, pruningPredicates)(sparkSession)) :: Nil
+          HiveTableScanExec(_, relation, pruningPredicates, projectList.flatMap(_.references))(sparkSession)) :: Nil
       case _ =>
         Nil
     }
+
+
+    private def mkAttribute(
+                             function: String,
+                             root: AttributeReference,
+                             field: String,
+                             attrMap: ReplaceMap): AttributeReference = {
+      val attrName = s"$function:${root.name}:$field"
+      val key = s"${root.exprId}$field"
+      val qualifier = s"${root.qualifier.fold("")(_ + ".")}${root.name}"
+      //TODO: add castType
+      val metadata = new MetadataBuilder()
+        .putString("function", function)
+        .putLong("rootId", root.exprId.id)
+        .putString("field", field)
+        .putString("root", root.name)
+        .build()
+      attrMap.getOrElseUpdate(key, AttributeReference(
+        attrName, StringType, metadata = metadata)(qualifier = Some(qualifier)))
+    }
+
+    //把GetJsonObject变成AttributeReference
+    private def replaceJson(expr: Expression, attrMap: ReplaceMap): Option[AttributeReference] = {
+      expr match {
+        case GetJsonObject(r: AttributeReference, Literal(v, StringType)) =>
+          var path = stringConverter(v).asInstanceOf[String]
+          Some(mkAttribute("get_json_object", r, path, attrMap))
+        case _ => None
+      }
+    }
+
+    private def flattenProject(
+                                projectList: Seq[NamedExpression],
+                                filterPredicates: Seq[Expression],
+                                replaceFuncs: Seq[ReplaceFunc]): (Seq[NamedExpression], Seq[Expression]) = {
+      val attrMap = mutable.HashMap.empty[String, AttributeReference]
+
+      def matchExpr(expr: Expression): Option[AttributeReference] = {
+        replaceFuncs.foreach { func =>
+          func(expr, attrMap) match {
+            case Some(attr) => return Some(attr)
+            case _ =>
+          }
+        }
+        None
+      }
+
+      def replace(expr: Expression): Expression = matchExpr(expr) match {
+        case Some(attr) => attr
+        case None => expr.withNewChildren(expr.children.map(replace))
+      }
+
+      val p = projectList.map(replace(_).asInstanceOf[NamedExpression])
+      val f = filterPredicates.map(replace)
+      (p, f)
+    }
+
+
+    private def collectJsonInfo(projectList: Seq[NamedExpression],
+                                filterPredicates: Seq[Expression],
+                                relation: HiveTableRelation): (mutable.Set[JsonInfo], mutable.Set[JsonInfo]) = {
+
+      val jsonInfoSetInProject = mutable.Set[JsonInfo]()
+      val jsonInfoSetInFilter = mutable.Set[JsonInfo]()
+      projectList.foreach(collect(_, jsonInfoSetInProject, relation))
+      filterPredicates.foreach(collect(_, jsonInfoSetInFilter, relation))
+      (jsonInfoSetInProject, jsonInfoSetInFilter)
+    }
+
+    private def collect(expr: Expression, set: mutable.Set[JsonInfo], relation: HiveTableRelation): Unit = {
+      expr.foreach {
+        case GetJsonObject(r: AttributeReference, Literal(v, StringType)) => set.add((relation, r, stringConverter(v).asInstanceOf[String]))
+        case _ => //do nothing
+      }
+    }
+
   }
+
 }
