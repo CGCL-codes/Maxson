@@ -18,6 +18,7 @@ object GetJsonObjectExample {
       .config("spark.network.timeout", 3600)
       .config("spark.sql.codegen.wholeStage",false)
       .config("hive.exec.dynamic.partition.mode","nonstrict")
+      .config("spark.sql.json.optimize",true)
       .enableHiveSupport()
       .getOrCreate()
     import spark.implicits._
@@ -25,15 +26,16 @@ object GetJsonObjectExample {
     val value = Seq((
       """{"name":"fox",
         |"age":12,
-        |"pro":"InMemoryComputing"}""".stripMargin,1,"20190101"),(
+        |"pro":"InMemoryComputing"}""".stripMargin,1,"something","20190101"),(
       """{"name":"fox1",
         |"age":13,
-        |"pro":"InMemoryComputing"}""".stripMargin,1,"20190102"))
+        |"pro":"InMemoryComputing"}""".stripMargin,1,"something","20190102"))
     spark.sql("""drop table if exists json_db""")
     spark.sql(
       """create table if not exists json_db(
         |info STRING,
-        |id   INT)
+        |id   INT,
+        |extra STRING)
         |partitioned by(ds STRING)
         |STORED AS ORC
       """.stripMargin)
@@ -41,10 +43,10 @@ object GetJsonObjectExample {
     df.write.mode(SaveMode.Overwrite).insertInto("json_db")
     spark.sql(
       """
-        |insert into table json_db partition(ds) values ('{"name":"yipeng","age":13, "pro":"InMemoryComputing"}', 1, '20190101')
+        |insert into table json_db partition(ds) values ('{"name":"yipeng","age":13, "pro":"InMemoryComputing"}', 1, 'something', '20190101')
       """.stripMargin)
 
-    val df0 = spark.sql("select get_json_object(info,'$.age') as col1  from json_db where ds >= '20190101'")
+    val df0 = spark.sql("select get_json_object(info,'$.age') as col1, extra, id from json_db where ds >= '20190101'")
     df0.show()
     df0.explain(true)
   }

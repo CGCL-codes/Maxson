@@ -258,7 +258,7 @@ private[hive] trait HiveStrategies {
     private val stringConverter = CatalystTypeConverters.createToScalaConverter(StringType)
 
     private type ReplaceMap = mutable.HashMap[String, AttributeReference]
-    private type ReplaceFunc = (Expression, ReplaceMap) => Option[AttributeReference]
+    private type ReplaceFunc = (Expression, ReplaceMap, HiveTableRelation) => Option[AttributeReference]
 
 
     def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
@@ -270,36 +270,30 @@ private[hive] trait HiveStrategies {
           !predicate.references.isEmpty &&
             predicate.references.subsetOf(partitionKeyIds)
         }
-        //collect json info
-        //        val (jsonInfoSetInProject, jsonInfoSetInFilter) = collectJsonInfo(projectList, otherPredicates, relation)
-        //        println(s"jsonInfoInProject: $jsonInfoSetInProject |||| jsonInfoSetInFilter: $jsonInfoSetInFilter")
-
-
-        val (scanProjectList, scanFilters) = {
-          val conf = sparkSession.sparkContext.conf
-          val funcs = ArrayBuffer.empty[ReplaceFunc]
-          funcs.append(replaceJson)
-          if (funcs.nonEmpty) {
-            flattenProject(projectList, predicates, funcs)
-          } else {
-            (projectList, predicates)
+        if (sparkSession.sparkContext.conf.getBoolean("spark.sql.json.optimize", false)) {
+          val (scanProjectList, scanFilters) = {
+            val funcs = ArrayBuffer.empty[ReplaceFunc]
+            funcs.append(replaceJson)
+            if (funcs.nonEmpty) {
+              flattenProject(projectList, predicates, funcs, relation)
+            } else {
+              (projectList, predicates)
+            }
           }
-        }
-
-
-        //        println(s"scanProjectList: ${scanProjectList}")
-        //        println(s"scanFilters: ${scanFilters}")
-        val actualProjectList = if (sparkSession.sparkContext.conf.getBoolean("spark.sql.json.optimize", false)) {
-          scanProjectList
+          pruneFilterProject(
+            scanProjectList,
+            scanFilters,
+            identity[Seq[Expression]],
+            HiveTableScanExec(_, relation, pruningPredicates)(sparkSession)) :: Nil
         } else {
-          projectList
+          pruneFilterProject(
+            projectList,
+            otherPredicates,
+            identity[Seq[Expression]],
+            HiveTableScanExec(_, relation, pruningPredicates)(sparkSession)) :: Nil
         }
 
-        pruneFilterProject(
-          actualProjectList,
-          otherPredicates,
-          identity[Seq[Expression]],
-          HiveTableScanExec(_, relation, pruningPredicates)(sparkSession)) :: Nil
+
       case _ =>
         Nil
     }
@@ -325,11 +319,15 @@ private[hive] trait HiveStrategies {
     }
 
     //把GetJsonObject变成AttributeReference
-    private def replaceJson(expr: Expression, attrMap: ReplaceMap): Option[AttributeReference] = {
+    private def replaceJson(expr: Expression, attrMap: ReplaceMap, relation: HiveTableRelation): Option[AttributeReference] = {
       expr match {
         case GetJsonObject(r: AttributeReference, Literal(v, StringType)) =>
           var path = stringConverter(v).asInstanceOf[String]
-          Some(mkAttribute("get_json_object", r, path, attrMap))
+          if (ReadJson.jsonPathExists(sparkSession, relation.tableMeta.database + "_" + relation.tableMeta.identifier.table, r.name + "_" + path)) {
+            Some(mkAttribute("get_json_object", r, path, attrMap))
+          } else {
+            None
+          }
         case _ => None
       }
     }
@@ -337,12 +335,13 @@ private[hive] trait HiveStrategies {
     private def flattenProject(
                                 projectList: Seq[NamedExpression],
                                 filterPredicates: Seq[Expression],
-                                replaceFuncs: Seq[ReplaceFunc]): (Seq[NamedExpression], Seq[Expression]) = {
+                                replaceFuncs: Seq[ReplaceFunc],
+                                relation: HiveTableRelation): (Seq[NamedExpression], Seq[Expression]) = {
       val attrMap = mutable.HashMap.empty[String, AttributeReference]
 
       def matchExpr(expr: Expression): Option[AttributeReference] = {
         replaceFuncs.foreach { func =>
-          func(expr, attrMap) match {
+          func(expr, attrMap, relation) match {
             case Some(attr) => return Some(attr)
             case _ =>
           }
@@ -352,6 +351,7 @@ private[hive] trait HiveStrategies {
 
       def replace(expr: Expression): Expression = matchExpr(expr) match {
         case Some(attr) => attr
+        //为None就不替换 就去替换孩子，直到没有孩子的节点，那么就原样返回
         case None => expr.withNewChildren(expr.children.map(replace))
       }
 
