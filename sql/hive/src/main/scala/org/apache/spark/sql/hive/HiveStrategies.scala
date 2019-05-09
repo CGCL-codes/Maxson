@@ -271,8 +271,9 @@ private[hive] trait HiveStrategies {
             predicate.references.subsetOf(partitionKeyIds)
         }
         //collect json info
-//        val (jsonInfoSetInProject, jsonInfoSetInFilter) = collectJsonInfo(projectList, otherPredicates, relation)
-//        println(s"jsonInfoInProject: $jsonInfoSetInProject |||| jsonInfoSetInFilter: $jsonInfoSetInFilter")
+        //        val (jsonInfoSetInProject, jsonInfoSetInFilter) = collectJsonInfo(projectList, otherPredicates, relation)
+        //        println(s"jsonInfoInProject: $jsonInfoSetInProject |||| jsonInfoSetInFilter: $jsonInfoSetInFilter")
+
 
         val (scanProjectList, scanFilters) = {
           val conf = sparkSession.sparkContext.conf
@@ -286,15 +287,19 @@ private[hive] trait HiveStrategies {
         }
 
 
-        println(s"scanProjectList: ${scanProjectList}")
-        println(s"scanFilters: ${scanFilters}")
-
+        //        println(s"scanProjectList: ${scanProjectList}")
+        //        println(s"scanFilters: ${scanFilters}")
+        val acutalProjectList = if (sparkSession.sparkContext.conf.getBoolean("spark.sql.json.optimize", false)) {
+            scanProjectList
+        }else{
+          projectList
+        }
 
         pruneFilterProject(
-          scanProjectList,
+          acutalProjectList,
           otherPredicates,
           identity[Seq[Expression]],
-          HiveTableScanExec(_, relation, pruningPredicates,projectList.flatMap(_.references))(sparkSession)) :: Nil
+          HiveTableScanExec(_, relation, pruningPredicates, projectList.flatMap(_.references))(sparkSession)) :: Nil
       case _ =>
         Nil
     }
@@ -313,11 +318,12 @@ private[hive] trait HiveStrategies {
         .putString("function", function)
         .putLong("rootId", root.exprId.id)
         .putString("field", field)
-        .putString("root",root.name)
+        .putString("root", root.name)
         .build()
       attrMap.getOrElseUpdate(key, AttributeReference(
         attrName, StringType, metadata = metadata)(qualifier = Some(qualifier)))
     }
+
     //把GetJsonObject变成AttributeReference
     private def replaceJson(expr: Expression, attrMap: ReplaceMap): Option[AttributeReference] = {
       expr match {
