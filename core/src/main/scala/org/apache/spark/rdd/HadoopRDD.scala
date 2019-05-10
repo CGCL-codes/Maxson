@@ -361,11 +361,11 @@ class HadoopRDD[K, V](
       private val cachekey: K = if (cacheReader == null) null.asInstanceOf[K] else cacheReader.createKey()
       private val cachevalue: V = if (cacheReader == null) null.asInstanceOf[V] else cacheReader.createValue()
 
-      val method = value.getClass.getDeclaredMethod("setFieldValue",Array(classOf[Int], classOf[Object]):_*)
-      val fieldsRef = cachevalue.getClass.getDeclaredField("fields")
-      fieldsRef.setAccessible(true)
-      method.setAccessible(true)
-      val catchFields = fieldsRef.get(cachevalue).asInstanceOf[Array[Object]]
+//      val method = value.getClass.getDeclaredMethod("setFieldValue",Array(classOf[Int], classOf[Object]):_*)
+//      val fieldsRef = cachevalue.getClass.getDeclaredField("fields")
+//      fieldsRef.setAccessible(true)
+//      method.setAccessible(true)
+//      val catchFields = fieldsRef.get(cachevalue).asInstanceOf[Array[Object]]
 
       override def getNext(): (K, V) = {
         try {
@@ -396,10 +396,10 @@ class HadoopRDD[K, V](
 //        val args: Array[Object] = Array(2.asInstanceOf[Object],fields(0))
 //        method.invoke(value,args:_*)
 
-        for((catchCol,col) <- cacheInfo.colMapping){
-           val args:Array[Object] = Array(col.asInstanceOf[Object],catchFields(catchCol.asInstanceOf[Int]))
-          method.invoke(value,args:_*)
-        }
+//        for((catchCol,col) <- cacheInfo.colMapping){
+//           val args:Array[Object] = Array(col.asInstanceOf[Object],catchFields(catchCol.asInstanceOf[Int]))
+//          method.invoke(value,args:_*)
+//        }
         (key,value)
       }
 
