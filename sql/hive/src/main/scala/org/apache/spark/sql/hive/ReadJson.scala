@@ -6,6 +6,8 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.catalog.CatalogTable
 import org.apache.spark.sql.hive.client.HiveClientImpl
 
+import scala.collection.mutable.ArrayBuffer
+
 /**
   * @author zyp
   */
@@ -15,47 +17,39 @@ import org.apache.spark.sql.hive.client.HiveClientImpl
 class ReadJson(tableName: String, jsonKeys: Array[String],jsonCols:Array[String]) {
   var hiveQlTable: Table = null
   var dir: String = null
-  var indexOfJsonPath: Int = 0
+  var indexOfJsonPath: String = null
   val dbName = "default"
   var jsonPath:String = null
 
-def this(tableName: String, jsonKeys: Array[String],jsonCols:Array[String],other:Option[Null]){
+def this(tableName: String, jsonKeys: Array[String],jsonCols:Array[String],sparkSession: SparkSession){
   this(tableName, jsonKeys,jsonCols)
-  composeJsonPath(jsonKeys,jsonCols)
+  val jsonPaths:ArrayBuffer[String] = composeJsonPath(jsonKeys,jsonCols)
+  var jsonPathsOrder:ArrayBuffer[Int] = ArrayBuffer.empty
+
+  val catalogTable = sparkSession.sessionState.catalog.externalCatalog.getTable(dbName, tableName)
+  hiveQlTable = HiveClientImpl.toHiveTable(catalogTable)
+  dir = hiveQlTable.getPath.toString
+  val columns = hiveQlTable.getMetadata.getProperty("columns").split(",").toList
+  for(jsonPath <- jsonPaths){
+    jsonPathsOrder += columns.indexOf(jsonPath)
+  }
+  val sortedCols = (jsonPathsOrder zip(jsonPaths)).sortBy(_._1).unzip
+  jsonPath = sortedCols._2.mkString(",")
+  indexOfJsonPath = sortedCols._1.mkString(",")
 }
 
   def gettableName: String = {
     tableName //原数据库名+_+原表名
   }
 
- def composeJsonPath(jsonKeys: Array[String],jsonCols:Array[String]):Unit={
-   jsonPath = jsonCols(0)+"_"+jsonKeys(0)
-   for( i <- 1 until jsonKeys.length ){
-     jsonPath += ","+jsonCols(i)+"_"+jsonKeys(i)
+ def composeJsonPath(jsonKeys: Array[String],jsonCols:Array[String]):ArrayBuffer[String]={
+   var jsonPaths:ArrayBuffer[String] = ArrayBuffer.empty
+   for( i <- 0 until jsonKeys.length ){
+     jsonPaths +=  jsonCols(i)+"_"+jsonKeys(i)
+//     jsonPath += ","+jsonCols(i)+"_"+jsonKeys(i)
    }
+   jsonPaths
  }
-
-  /**
-    * @param sparkSession
-    * @return
-    */
-  def jsonPathExists(sparkSession: SparkSession): Boolean = {
-    var flag: Boolean = false
-    try {
-      //TODO dbname 是我们自己确定的
-      val catalogTable = sparkSession.sessionState.catalog.externalCatalog.getTable(dbName, tableName)
-      hiveQlTable = HiveClientImpl.toHiveTable(catalogTable)
-      val columns = hiveQlTable.getMetadata.getProperty("columns").split(",").toList
-      if (columns.contains(jsonPath)) {
-        flag = true
-        indexOfJsonPath = columns.indexOf(jsonPath)
-        dir = hiveQlTable.getPath.toString
-      }
-    } catch {
-      case e: Exception => println(s"Table or view '$tableName' not found in database '$dbName'")
-    }
-    flag
-  }
 }
 
 object ReadJson{

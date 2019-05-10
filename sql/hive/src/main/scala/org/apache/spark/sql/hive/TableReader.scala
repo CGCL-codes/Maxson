@@ -316,13 +316,13 @@ class HadoopTableReader(
     val jsonCols = conf.get("spark.hive.cache.json.cols").split(",")
     val allCols = conf.get("spark.hive.cache.json.col.order")
     if(jsonKeys!=null){
-      val readJson = new ReadJson(tableName,jsonKeys,jsonCols)   //注意参数的格式
+      val readJson = new ReadJson(tableName,jsonKeys,jsonCols,sparkSession)   //注意参数的格式
       rdd.cacheInfo = new CacheInfo(
                         readJson.dir,
                         readJson.gettableName,
                         readJson.jsonPath,
                         readJson.hiveQlTable.getMetadata.getProperty("columns"),
-                        readJson.indexOfJsonPath.toString,
+                        readJson.indexOfJsonPath,
                         allCols)
     }
     rdd.map(_._2)

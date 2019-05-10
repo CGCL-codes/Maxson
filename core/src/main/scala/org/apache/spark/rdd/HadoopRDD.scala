@@ -277,9 +277,7 @@ class HadoopRDD[K, V](
 
       private val split = theSplit.asInstanceOf[HadoopPartition]
       var cacheSplit:HadoopPartition = null
-      if(cacheInfo != null){
-        println(s"$cacheInfo***************************************************")
-        cacheSplit = cacheSplits(split.index).asInstanceOf[HadoopPartition]}
+      if(cacheInfo != null) cacheSplit = cacheSplits(split.index).asInstanceOf[HadoopPartition]
       logInfo("Input split: " + split.inputSplit)
       private val jobConf = getJobConf()
 
