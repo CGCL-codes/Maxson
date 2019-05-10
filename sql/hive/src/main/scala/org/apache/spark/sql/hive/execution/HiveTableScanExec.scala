@@ -149,19 +149,19 @@ case class HiveTableScanExec(
     //    spark.hive.cache.json.cols "col0,col1,col2"
     //    spark.hive.cache.json.col.order "col0,col1,col2,col3,col4,col5"
     if (sparkSession.sparkContext.conf.getBoolean("spark.sql.json.optimize", false)) {
-      conf.setConfString("spark.hive,cache.json.database", relation.tableMeta.database)
-      conf.setConfString("spark.hive.cache.json.table", relation.tableMeta.identifier.table)
+      hiveConf.set("spark.hive,cache.json.database", relation.tableMeta.database)
+      hiveConf.set("spark.hive.cache.json.table", relation.tableMeta.identifier.table)
       val jsonKeys = jsonFiledSchema.map(_.metadata.getString("field")).mkString(",")
-      conf.setConfString("spark.hive.cache.json.keys", jsonKeys)
+      hiveConf.set("spark.hive.cache.json.keys", jsonKeys)
       val jsonCols = jsonFiledSchema.map(_.metadata.getString("root")).mkString(",")
-      conf.setConfString("spark.hive.cache.json.cols", jsonCols)
+      hiveConf.set("spark.hive.cache.json.cols", jsonCols)
       val colOrder = schema.map(item => if (item.name.contains(":")) {
         item.metadata.getString("field")
       } else {
         item.name
       }).mkString(",")
-      conf.setConfString("spark.hive.cache.json.cols", colOrder)
-      logInfo(s"database: ${relation.tableMeta.database} table: ${relation.tableMeta.identifier.table}  jsonKeys: $jsonKeys jsonCols: $jsonCols colOrder: $colOrder")
+      hiveConf.set("spark.hive.cache.json.cols", colOrder)
+      logInfo(s"******database: ${relation.tableMeta.database} table: ${relation.tableMeta.identifier.table}  jsonKeys: $jsonKeys jsonCols: $jsonCols colOrder: $colOrder")
     }
     // Specifies needed column IDs for those non-partitioning columns.
     val columnOrdinals = AttributeMap(relation.dataCols.zipWithIndex)

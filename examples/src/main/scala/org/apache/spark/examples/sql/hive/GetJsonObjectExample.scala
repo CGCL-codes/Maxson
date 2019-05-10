@@ -46,7 +46,7 @@ object GetJsonObjectExample {
         |insert into table json_db partition(ds) values ('{"name":"yipeng","age":13, "pro":"InMemoryComputing"}', 1, 'something', '20190101')
       """.stripMargin)
 
-    val df0 = spark.sql("select get_json_object(info,'$.age') as col1, extra, id from json_db where ds >= '20190101'")
+    val df0 = spark.sql("select  get_json_object(info,'$.age')  as col1, extra, id from json_db where ds >= '20190101'")
     df0.show()
     df0.explain(true)
   }
