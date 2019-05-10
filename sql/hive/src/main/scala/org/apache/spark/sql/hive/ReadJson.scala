@@ -20,9 +20,12 @@ class ReadJson(tableName: String, jsonKeys: Array[String],jsonCols:Array[String]
   var indexOfJsonPath: String = null
   val dbName = "default"
   var jsonPath:String = null
+  var jsonColOrders:String = null
 
-def this(tableName: String, jsonKeys: Array[String],jsonCols:Array[String],sparkSession: SparkSession){
+def this(tableName: String, jsonKeys: Array[String],jsonCols:Array[String],allCols:Array[String],sparkSession: SparkSession){
   this(tableName, jsonKeys,jsonCols)
+
+  jsonColOrders = getJsonColOrder(jsonCols,allCols)
   val jsonPaths:ArrayBuffer[String] = composeJsonPath(jsonKeys,jsonCols)
   var jsonPathsOrder:ArrayBuffer[Int] = ArrayBuffer.empty
 
@@ -38,6 +41,13 @@ def this(tableName: String, jsonKeys: Array[String],jsonCols:Array[String],spark
   indexOfJsonPath = sortedCols._1.mkString(",")
 }
 
+  def getJsonColOrder(jsonCols:Array[String],allCols:Array[String]):String={
+    var jsonColOrder:ArrayBuffer[Int] = ArrayBuffer.empty
+    for(jsonCol <- jsonCols){
+      jsonColOrder += allCols.indexOf(jsonCol)
+    }
+    jsonColOrder.mkString(",")
+  }
   def gettableName: String = {
     tableName //原数据库名+_+原表名
   }
@@ -46,7 +56,6 @@ def this(tableName: String, jsonKeys: Array[String],jsonCols:Array[String],spark
    var jsonPaths:ArrayBuffer[String] = ArrayBuffer.empty
    for( i <- 0 until jsonKeys.length ){
      jsonPaths +=  jsonCols(i)+"_"+jsonKeys(i)
-//     jsonPath += ","+jsonCols(i)+"_"+jsonKeys(i)
    }
    jsonPaths
  }

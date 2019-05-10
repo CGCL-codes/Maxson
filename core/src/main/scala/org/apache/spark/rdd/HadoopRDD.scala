@@ -361,6 +361,12 @@ class HadoopRDD[K, V](
       private val cachekey: K = if (cacheReader == null) null.asInstanceOf[K] else cacheReader.createKey()
       private val cachevalue: V = if (cacheReader == null) null.asInstanceOf[V] else cacheReader.createValue()
 
+      val method = value.getClass.getDeclaredMethod("setFieldValue",Array(classOf[Int], classOf[Object]):_*)
+      val fieldsRef = cachevalue.getClass.getDeclaredField("fields")
+      fieldsRef.setAccessible(true)
+      method.setAccessible(true)
+      val catchFields = fieldsRef.get(cachevalue).asInstanceOf[Array[Object]]
+
       override def getNext(): (K, V) = {
         try {
         if(cacheReader != null) cacheReader.next(cachekey, cachevalue)
@@ -389,6 +395,11 @@ class HadoopRDD[K, V](
 //        }
 //        val args: Array[Object] = Array(2.asInstanceOf[Object],fields(0))
 //        method.invoke(value,args:_*)
+
+        for((catchCol,col) <- cacheInfo.colMapping){
+           val args:Array[Object] = Array(col.asInstanceOf[Object],catchFields(catchCol.asInstanceOf[Int]))
+          method.invoke(value,args:_*)
+        }
         (key,value)
       }
 
@@ -397,7 +408,7 @@ class HadoopRDD[K, V](
         if (reader != null) {
           InputFileBlockHolder.unset()
           try {
-             if(cacheReader != null) cacheReader.close()
+            if(cacheReader != null) cacheReader.close()
             reader.close()
             println(s"**************split:*********${split.index}****${split.inputSplit.value.getLength}")
 //            println("!!!!!!!!!!!!!!!!!!resder:!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"+reader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier.getRowId)
