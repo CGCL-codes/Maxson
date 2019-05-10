@@ -299,7 +299,7 @@ class HadoopTableReader(
 
     val initializeJobConfFunc = HadoopTableReader.initializeLocalJobConfFunc(path, tableDesc) _
 
-    val readJson = new ReadJson("newLog_path","path")   //注意参数的格式
+
     var rdd:RDD[(Writable,Writable)] = null
       rdd = new HadoopRDD(
         sparkSession.sparkContext,
@@ -310,20 +310,20 @@ class HadoopTableReader(
         classOf[Writable],
         _minSplitsPerRDD)
       // Only take the value (skip the key) because Hive works only with values.
-    if(readJson.jsonPathExists(sparkSession)){
-//      val cacheInfo:mutable.HashMap[String,String] =mutable.HashMap.empty
-//      cacheInfo("cachePath") = readJson.dir
-//      cacheInfo("tableName") = readJson.gettableName
-//      cacheInfo("jsonPath") = readJson.getJsonPath
-//      cacheInfo("columns") = readJson.hiveQlTable.getMetadata.getProperty("columns")
-//      cacheInfo("indexOfJsonPath") = readJson.indexOfJsonPath.toString
-//
+    val conf =_broadcastedHadoopConf.value.value
+    val tableName =conf.get("spark.hive.cache.json.database")+"_"+conf.get("spark.hive.cache.json.table")
+    val jsonKeys = conf.get("spark.hive.cache.json.keys").split(",")
+    val jsonCols = conf.get("spark.hive.cache.json.cols").split(",")
+    val allCols = conf.get("spark.hive.cache.json.col.order")
+    if(jsonKeys!=null){
+      val readJson = new ReadJson(tableName,jsonKeys,jsonCols)   //注意参数的格式
       rdd.cacheInfo = new CacheInfo(
                         readJson.dir,
                         readJson.gettableName,
-                        readJson.getJsonPath,
+                        readJson.jsonPath,
                         readJson.hiveQlTable.getMetadata.getProperty("columns"),
-                        readJson.indexOfJsonPath.toString)
+                        readJson.indexOfJsonPath.toString,
+                        allCols)
     }
     rdd.map(_._2)
   }

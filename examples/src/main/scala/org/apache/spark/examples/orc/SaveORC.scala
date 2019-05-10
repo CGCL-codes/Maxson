@@ -10,6 +10,7 @@ object SaveORC {
       .builder()
       .master("local[4]")
       .config("spark.sql.catalogImplementation","hive")
+      .config("spark.sql.json.optimize",true)
       .enableHiveSupport()
       .getOrCreate()
 //    import spark.implicits._
@@ -17,11 +18,9 @@ object SaveORC {
 //      val info = x.split(" ")
 //      Log(info(0),info(1).toInt,info(2))
 //    }).toDF()
-////    df.createOrReplaceTempView("logView")
-////    val df2 = spark.sql("select * from logView order by frequency").rdd
-////   df2.coalesce(1).saveAsTextFile("examples/src/main/resources/verify2.txt")
 //
-//    spark.sql("drop table newLog")
+//
+////    spark.sql("drop table newLog")
 //    df.write.format("hive").option("fileFormat","orc").saveAsTable("newLog")
 
 //    spark.sql("insert overwrite table log select * from log order by time")
@@ -32,21 +31,20 @@ object SaveORC {
 //    rdd.collect()
 
     /*****************模拟从原表读数据并缓存**************************/
-//    val log_path = spark.sql("select get_json_object(path,'$.age'),get_json_object(path,'$.name') from newLog")
-////
-////    spark.sql("drop table log_path")
-//    log_path.write.format("hive").option("fileFormat","orc").saveAsTable("newLog_path")
-//    log.write.format("orc").save("data/log_path")
+//    val log_path = spark.sql("select get_json_object(path,'$.age') as path_age,get_json_object(path,'$.name')as path_name from newLog")
+//
+//    spark.sql("drop table newLog_path")
+//    log_path.write.format("hive").option("fileFormat","orc").saveAsTable("default_newLog")
     /*********************模拟读缓存(测试单独读path的reader可不可以用)*************************/
 //    val log = spark.read.orc("data/log_path")
-//    val log  = spark.sql("select path from log_path")
+//    val log  = spark.sql("select path from newLog_path")
     ////    log.collect()
     ////    log.show(10)
     /**********************模拟读缓存，当语句中有path的时候，开启两个reader************************/
 
-    val log = spark.sql("select time,frequency from log")
-//    log.collect()
-    log.show(10)
+    val log = spark.sql("select get_json_object(path,'$.name')as path_name,get_json_object(path,'$.age') as path_age,frequency,time from newLog")
+    log.collect()
+//    log.show(10)
   }
 }
 

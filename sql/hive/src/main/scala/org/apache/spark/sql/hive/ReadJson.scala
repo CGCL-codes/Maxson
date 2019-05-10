@@ -12,20 +12,28 @@ import org.apache.spark.sql.hive.client.HiveClientImpl
 //class CacheJson {
 
 
-class ReadJson(tableName: String, jsonPath: String) {
+class ReadJson(tableName: String, jsonKeys: Array[String],jsonCols:Array[String]) {
   var hiveQlTable: Table = null
   var dir: String = null
   var indexOfJsonPath: Int = 0
   val dbName = "default"
+  var jsonPath:String = null
 
-  def getJsonPath: String = {
-    jsonPath //原表中的列名+_+原表中的jsonPath
-  }
+def this(tableName: String, jsonKeys: Array[String],jsonCols:Array[String],other:Option[Null]){
+  this(tableName, jsonKeys,jsonCols)
+  composeJsonPath(jsonKeys,jsonCols)
+}
 
   def gettableName: String = {
     tableName //原数据库名+_+原表名
   }
 
+ def composeJsonPath(jsonKeys: Array[String],jsonCols:Array[String]):Unit={
+   jsonPath = jsonCols(0)+"_"+jsonKeys(0)
+   for( i <- 1 until jsonKeys.length ){
+     jsonPath += ","+jsonCols(i)+"_"+jsonKeys(i)
+   }
+ }
 
   /**
     * @param sparkSession
@@ -48,8 +56,6 @@ class ReadJson(tableName: String, jsonPath: String) {
     }
     flag
   }
-
-
 }
 
 object ReadJson{
@@ -69,7 +75,6 @@ object ReadJson{
   }
 }
 
-//}
 
 
 

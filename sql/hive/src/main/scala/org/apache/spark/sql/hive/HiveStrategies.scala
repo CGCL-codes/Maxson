@@ -322,7 +322,8 @@ private[hive] trait HiveStrategies {
     private def replaceJson(expr: Expression, attrMap: ReplaceMap, relation: HiveTableRelation): Option[AttributeReference] = {
       expr match {
         case GetJsonObject(r: AttributeReference, Literal(v, StringType)) =>
-          var path = stringConverter(v).asInstanceOf[String]
+          val jsonParameter = stringConverter(v).asInstanceOf[String]
+          val path = jsonParameter.substring(jsonParameter.indexOf(".")+1,jsonParameter.length).replaceAll("\\.","_")
           if (ReadJson.jsonPathExists(sparkSession, relation.tableMeta.database + "_" + relation.tableMeta.identifier.table, r.name + "_" + path)) {
             Some(mkAttribute("get_json_object", r, path, attrMap))
           } else {
