@@ -263,6 +263,11 @@ private[hive] trait HiveStrategies {
 
     def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
       case PhysicalOperation(projectList, predicates, relation: HiveTableRelation) =>
+        //if we find the output has : we can't judge where it from json or original output, so we disable optimize json
+        if(relation.output.exists(_.name.contains(":"))){
+          sparkSession.sparkContext.conf.set("spark.sql.json.optimize","false")
+          logWarning(s"find the `:` in relation output ${relation.tableMeta}, so we disable optimize json" )
+        }
         // Filter out all predicates that only deal with partition keys, these are given to the
         // hive table scan operator to be used for partition pruning.
         val partitionKeyIds = AttributeSet(relation.partitionCols)
