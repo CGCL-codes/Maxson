@@ -7,9 +7,11 @@ object SaveORCHu {
   def main(args: Array[String]): Unit = {
     val spark = SparkSession
       .builder()
-      .master("local[4]")
+      .master("local")
       .config("spark.sql.catalogImplementation","hive")
-      .config("spark.sql.json.optimize",false)
+      .config("spark.sql.json.optimize",true)
+      .config("spark.network.timeout", 3600)
+      .config("spark.sql.codegen.wholeStage",false)
       .enableHiveSupport()
       .getOrCreate()
 //        import spark.implicits._

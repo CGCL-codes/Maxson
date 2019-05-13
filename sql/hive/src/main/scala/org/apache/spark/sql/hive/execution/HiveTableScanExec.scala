@@ -167,8 +167,8 @@ case class HiveTableScanExec(
     val columnOrdinals = AttributeMap(relation.dataCols.zipWithIndex)
     //GetJsonObject引用的列不会被列到neededColumnIDs
     val neededColumnIDs = output.flatMap(columnOrdinals.get).map(o => o: Integer)
-
-    HiveShim.appendReadColumns(hiveConf, neededColumnIDs, output.map(_.name))
+    //过滤掉output中GetJsonObject列
+    HiveShim.appendReadColumns(hiveConf, neededColumnIDs, output.filter(!_.name.contains(":"))map(_.name))
 
     val deserializer = tableDesc.getDeserializerClass.newInstance
     deserializer.initialize(hiveConf, tableDesc.getProperties)
