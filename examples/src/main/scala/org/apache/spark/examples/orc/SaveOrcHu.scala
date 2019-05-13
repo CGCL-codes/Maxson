@@ -30,9 +30,9 @@ object SaveORCHu {
     //    rdd.collect()
 
     /*****************模拟从原表读数据并缓存**************************/
-        val log_path = spark.sql("select get_json_object(path,'$.age') as path_age,get_json_object(path,'$.name')as path_name from newLog")
-
-        log_path.write.format("hive").option("fileFormat","orc").saveAsTable("default_newLog")
+//        val log_path = spark.sql("select get_json_object(path,'$.age') as path_age,get_json_object(path,'$.name')as path_name from newLog")
+//
+//        log_path.write.format("hive").option("fileFormat","orc").saveAsTable("default_newLog")
     /*********************模拟读缓存(测试单独读path的reader可不可以用)*************************/
     //    val log = spark.read.orc("data/log_path")
     //    val log  = spark.sql("select path from newLog_path")
@@ -40,9 +40,10 @@ object SaveORCHu {
     ////    log.show(10)
     /**********************模拟读缓存，当语句中有path的时候，开启两个reader************************/
 
-//    val log = spark.sql("select get_json_object(path,'$.name')as path_name,get_json_object(path,'$.age') as path_age,frequency,time from newLog")
-//    log.collect()
-    //    log.show(10)
+    val log = spark.sql("select get_json_object(path,'$.name')as path_name,get_json_object(path,'$.age') as path_age,frequency,time from newLog")
+    log.explain(true)
+    log.collect()
+    log.show(10)
   }
 }
 
