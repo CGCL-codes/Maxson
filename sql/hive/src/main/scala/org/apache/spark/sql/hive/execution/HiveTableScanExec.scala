@@ -160,6 +160,10 @@ case class HiveTableScanExec(
       } else {
         item.name
       }).mkString(",")
+      val duplicate = colOrder.split(",").map((_, 1)).groupBy(_._1).map(elem => (elem._1, elem._2.map(_._2).sum)).filter(_._2 > 1)
+      if (duplicate.nonEmpty) {
+        throw new QueryExecutionException(s"cols has some duplicate:$duplicate")
+      }
       hiveConf.set("spark.hive.cache.json.col.order", colOrder)
       logInfo(s"******database: ${relation.tableMeta.database} table: ${relation.tableMeta.identifier.table}  jsonKeys: $jsonKeys jsonCols: $jsonCols colOrder: $colOrder")
     }
@@ -168,7 +172,7 @@ case class HiveTableScanExec(
     //GetJsonObject引用的列不会被列到neededColumnIDs
     val neededColumnIDs = output.flatMap(columnOrdinals.get).map(o => o: Integer)
     //过滤掉output中GetJsonObject列
-    HiveShim.appendReadColumns(hiveConf, neededColumnIDs, output.filter(!_.name.contains(":"))map(_.name))
+    HiveShim.appendReadColumns(hiveConf, neededColumnIDs, output.filter(!_.name.contains(":")).map(_.name))
 
     val deserializer = tableDesc.getDeserializerClass.newInstance
     deserializer.initialize(hiveConf, tableDesc.getProperties)
