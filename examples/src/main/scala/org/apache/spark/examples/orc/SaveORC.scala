@@ -8,20 +8,20 @@ object SaveORC {
   def main(args: Array[String]): Unit = {
     val spark = SparkSession
       .builder()
-      .master("local[4]")
+      .master("local")
       .config("spark.sql.catalogImplementation","hive")
       .config("spark.sql.json.optimize",true)
       .enableHiveSupport()
       .getOrCreate()
-    import spark.implicits._
-    val  df = spark.sparkContext.textFile("examples/src/main/resources/train-zhang.txt").map(x => {
-      val info = x.split(" ")
-      Log(info(0),info(1).toInt,info(2))
-    }).toDF()
-
-
-//    spark.sql("drop table newLog")
-    df.write.format("hive").option("fileFormat","orc").saveAsTable("newLog2")
+//    import spark.implicits._
+//    val  df = spark.sparkContext.textFile("examples/src/main/resources/train-zhang.txt").map(x => {
+//      val info = x.split(" ")
+//      Log(info(0),info(1).toInt,info(2))
+//    }).toDF()
+//
+//
+////    spark.sql("drop table newLog")
+//    df.write.format("hive").option("fileFormat","orc").saveAsTable("newLog2")
 
 //    spark.sql("insert overwrite table log select * from log order by time")
     /**********************搞清楚RowGroup是怎么跳的***************************/
@@ -42,9 +42,9 @@ object SaveORC {
     ////    log.show(10)
     /**********************模拟读缓存，当语句中有path的时候，开启两个reader************************/
 //
-//    val log = spark.sql("select get_json_object(path,'$.name')as path_name,get_json_object(path,'$.age') as path_age,frequency,time from newLog")
-//    log.collect()
-//    log.show(10)
+    val log = spark.sql("select get_json_object(path,'$.name')as path_name,get_json_object(path,'$.age') as path_age,frequency,time from newLog")
+   // log.collect()
+    log.show(10)
   }
 }
 
