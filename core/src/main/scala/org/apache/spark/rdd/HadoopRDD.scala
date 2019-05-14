@@ -271,17 +271,131 @@ class HadoopRDD[K, V](
   }
 
 
-
+ val opt = sc.conf.getBoolean("spark.sql.json.optimize", false)
   override def compute(theSplit: Partition, context: TaskContext): InterruptibleIterator[(K, V)] = {
-    val iter = new NextIterator[(K, V)] {
+
+    var iter:NextIterator[(K,V)] = null
+    if (!opt) {
+       iter = new NextIterator[(K, V)] {
+        private val split = theSplit.asInstanceOf[HadoopPartition]
+        logInfo("Input split: " + split.inputSplit)
+        private val jobConf = getJobConf()
+
+        private val inputMetrics = context.taskMetrics().inputMetrics
+        private val existingBytesRead = inputMetrics.bytesRead
+
+        // Sets InputFileBlockHolder for the file block's information
+        split.inputSplit.value match {
+          case fs: FileSplit =>
+            InputFileBlockHolder.set(fs.getPath.toString, fs.getStart, fs.getLength)
+          case _ =>
+            InputFileBlockHolder.unset()
+        }
+
+
+        // Find a function that will return the FileSystem bytes read by this thread. Do this before
+        // creating RecordReader, because RecordReader's constructor might read some bytes
+        private val getBytesReadCallback: Option[() => Long] = split.inputSplit.value match {
+          case _: FileSplit | _: CombineFileSplit =>
+            Some(SparkHadoopUtil.get.getFSBytesReadOnThreadCallback())
+          case _ => None
+        }
+
+        // We get our input bytes from thread-local Hadoop FileSystem statistics.
+        // If we do a coalesce, however, we are likely to compute multiple partitions in the same
+        // task and in the same thread, in which case we need to avoid override values written by
+        // previous partitions (SPARK-13071).
+        private def updateBytesRead(): Unit = {
+          getBytesReadCallback.foreach { getBytesRead =>
+            inputMetrics.setBytesRead(existingBytesRead + getBytesRead())
+          }
+        }
+
+
+        private var reader: RecordReader[K, V] = null
+        private val inputFormat = getInputFormat(jobConf)
+        HadoopRDD.addLocalConfiguration(
+          new SimpleDateFormat("yyyyMMddHHmmss", Locale.US).format(createTime),
+          context.stageId, theSplit.index, context.attemptNumber, jobConf)
+
+        reader =
+          try {
+            inputFormat.getRecordReader(split.inputSplit.value, jobConf, Reporter.NULL)
+          } catch {
+            case e: IOException if ignoreCorruptFiles =>
+              logWarning(s"Skipped the rest content in the corrupted file: ${split.inputSplit}", e)
+              finished = true
+              null
+          }
+
+        // Register an on-task-completion callback to close the input stream.
+        context.addTaskCompletionListener { context =>
+          // Update the bytes read before closing is to make sure lingering bytesRead statistics in
+          // this thread get correctly added.
+          updateBytesRead()
+          closeIfNeeded()
+        }
+
+        private val key: K = if (reader == null) null.asInstanceOf[K] else reader.createKey()
+        private val value: V = if (reader == null) null.asInstanceOf[V] else reader.createValue()
+
+        override def getNext(): (K, V) = {
+          try {
+            finished = !reader.next(key, value)
+          } catch {
+            case e: IOException if ignoreCorruptFiles =>
+              logWarning(s"Skipped the rest content in the corrupted file: ${split.inputSplit}", e)
+              finished = true
+          }
+          if (!finished) {
+            inputMetrics.incRecordsRead(1)
+          }
+          if (inputMetrics.recordsRead % SparkHadoopUtil.UPDATE_INPUT_METRICS_INTERVAL_RECORDS == 0) {
+            updateBytesRead()
+          }
+          (key,value)
+        }
+
+        override def close(): Unit = {
+          if (reader != null) {
+            InputFileBlockHolder.unset()
+            try {
+              reader.close()
+              println(s"**************split:*********${split.index}****${split.inputSplit.value.getLength}")
+            } catch {
+              case e: Exception =>
+                if (!ShutdownHookManager.inShutdown()) {
+                  logWarning("Exception in RecordReader.close()", e)
+                }
+            } finally {
+              reader = null
+            }
+            if (getBytesReadCallback.isDefined) {
+              updateBytesRead()
+            } else if (split.inputSplit.value.isInstanceOf[FileSplit] ||
+              split.inputSplit.value.isInstanceOf[CombineFileSplit]) {
+              // If we can't get the bytes read from the FS stats, fall back to the split size,
+              // which may be inaccurate.
+              try {
+                inputMetrics.incBytesRead(split.inputSplit.value.getLength)
+              } catch {
+                case e: java.io.IOException =>
+                  logWarning("Unable to get input size to set InputMetrics for task", e)
+              }
+            }
+          }
+        }
+      }
+
+
+    } else {
+    iter = new NextIterator[(K, V)] {
 
       private val split = theSplit.asInstanceOf[HadoopPartition]
-      var cacheSplit:HadoopPartition = null
-      if(cacheInfo != null) cacheSplit = cacheSplits(split.index).asInstanceOf[HadoopPartition]
+      var cacheSplit: HadoopPartition = null
+      if (cacheInfo != null) cacheSplit = cacheSplits(split.index).asInstanceOf[HadoopPartition]
       logInfo("Input split: " + split.inputSplit)
       private val jobConf = getJobConf()
-
-
 
       private val inputMetrics = context.taskMetrics().inputMetrics
       private val existingBytesRead = inputMetrics.bytesRead
@@ -304,8 +418,6 @@ class HadoopRDD[K, V](
       }
 
 
-
-
       // We get our input bytes from thread-local Hadoop FileSystem statistics.
       // If we do a coalesce, however, we are likely to compute multiple partitions in the same
       // task and in the same thread, in which case we need to avoid override values written by
@@ -318,22 +430,22 @@ class HadoopRDD[K, V](
 
 
       private var reader: RecordReader[K, V] = null
-      private var cacheReader:RecordReader[K,V] = null
+      private var cacheReader: RecordReader[K, V] = null
       private val inputFormat = getInputFormat(jobConf)
       HadoopRDD.addLocalConfiguration(
         new SimpleDateFormat("yyyyMMddHHmmss", Locale.US).format(createTime),
         context.stageId, theSplit.index, context.attemptNumber, jobConf)
 
-     if(cacheInfo != null){
-       cacheReader = try{
-         inputFormat.getRecordReader(cacheSplit.inputSplit.value,cacheJobConf.value,Reporter.NULL)
-       }catch {
-         case e: IOException if ignoreCorruptFiles =>
-           logWarning(s"Skipped the rest content in the corrupted file: ${split.inputSplit}", e)
-           finished = true
-           null
-       }
-     }
+      if (cacheInfo != null) {
+        cacheReader = try {
+          inputFormat.getRecordReader(cacheSplit.inputSplit.value, cacheJobConf.value, Reporter.NULL)
+        } catch {
+          case e: IOException if ignoreCorruptFiles =>
+            logWarning(s"Skipped the rest content in the corrupted file: ${split.inputSplit}", e)
+            finished = true
+            null
+        }
+      }
 
 
       reader =
@@ -345,7 +457,7 @@ class HadoopRDD[K, V](
             finished = true
             null
         }
-//      cacheReader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier.getRowId
+      //      cacheReader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier.getRowId
       // Register an on-task-completion callback to close the input stream.
       context.addTaskCompletionListener { context =>
         // Update the bytes read before closing is to make sure lingering bytesRead statistics in
@@ -358,18 +470,24 @@ class HadoopRDD[K, V](
       private val value: V = if (reader == null) null.asInstanceOf[V] else reader.createValue()
 
 
+
       private val cachekey: K = if (cacheReader == null) null.asInstanceOf[K] else cacheReader.createKey()
       private val cachevalue: V = if (cacheReader == null) null.asInstanceOf[V] else cacheReader.createValue()
 
-//      val method = value.getClass.getDeclaredMethod("setFieldValue",Array(classOf[Int], classOf[Object]):_*)
-//      val fieldsRef = cachevalue.getClass.getDeclaredField("fields")
-//      fieldsRef.setAccessible(true)
-//      method.setAccessible(true)
-//      val catchFields = fieldsRef.get(cachevalue).asInstanceOf[Array[Object]]
+      val constructor = classOf[OrcStruct].getDeclaredConstructor(Array(classOf[Int]):_*)
+      constructor.setAccessible(true)
+      val args = Array[Object](cacheInfo.allcols.length.asInstanceOf[Object])
+      var composedValue = constructor.newInstance(args:_*)
+
+      val method = composedValue.getClass.getDeclaredMethod("setFieldValue",Array(classOf[Int], classOf[Object]):_*)
+      val fieldsRef = cachevalue.getClass.getDeclaredField("fields")
+      fieldsRef.setAccessible(true)
+      method.setAccessible(true)
+
 
       override def getNext(): (K, V) = {
         try {
-        if(cacheReader != null) cacheReader.next(cachekey, cachevalue)
+          if (cacheReader != null) cacheReader.next(cachekey, cachevalue)
           finished = !reader.next(key, value)
         } catch {
           case e: IOException if ignoreCorruptFiles =>
@@ -382,40 +500,56 @@ class HadoopRDD[K, V](
         if (inputMetrics.recordsRead % SparkHadoopUtil.UPDATE_INPUT_METRICS_INTERVAL_RECORDS == 0) {
           updateBytesRead()
         }
-//        (cachekey, cachevalue)
+        //        (cachekey, cachevalue)
 
-//        val method = value.getClass.getDeclaredMethod("setFieldValue",Array(classOf[Int], classOf[Object]):_*)
-//        val fieldsRef = cachevalue.getClass.getDeclaredField("fields")
-//        fieldsRef.setAccessible(true)
-//        val fields = fieldsRef.get(cachevalue).asInstanceOf[Array[Object]]
-//        val fields2 = fieldsRef.get(value).asInstanceOf[Array[Object]]
-//        method.setAccessible(true)
-//        if(fields(0).equals(fields2(2)) || fields(0) == fields2(2)){
-//          println("********************I am wrong*************************")
-//        }
-//        val args: Array[Object] = Array(2.asInstanceOf[Object],fields(0))
-//        method.invoke(value,args:_*)
+        //        val method = value.getClass.getDeclaredMethod("setFieldValue",Array(classOf[Int], classOf[Object]):_*)
+        //        val fieldsRef = cachevalue.getClass.getDeclaredField("fields")
+        //        fieldsRef.setAccessible(true)
+        //        val fields = fieldsRef.get(cachevalue).asInstanceOf[Array[Object]]
+        //        val fields2 = fieldsRef.get(value).asInstanceOf[Array[Object]]
+        //        method.setAccessible(true)
+        //        if(fields(0).equals(fields2(2)) || fields(0) == fields2(2)){
+        //          println("********************I am wrong*************************")
+        //        }
+        //        val args: Array[Object] = Array(2.asInstanceOf[Object],fields(0))
+        //        method.invoke(value,args:_*)
 
-//        for((catchCol,col) <- cacheInfo.colMapping){
-//           val args:Array[Object] = Array(col.asInstanceOf[Object],catchFields(catchCol.asInstanceOf[Int]))
-//          method.invoke(value,args:_*)
-//        }
-        (key,value)
+        val oldNewColMap = cacheInfo.colMapping
+        val normalColOrders = cacheInfo.normalColOrders.split(",")
+        val catchFields = fieldsRef.get(cachevalue).asInstanceOf[Array[Object]]
+        val fields = fieldsRef.get(value).asInstanceOf[Array[Object]]
+
+        for((catchCol,col) <- oldNewColMap){
+          val field = catchFields(catchCol.toInt)
+          val args:Array[Object] = Array(col.toInt.asInstanceOf[Object],field)
+          method.invoke(composedValue,args:_*)
+        }
+        var i = 0
+        for(normalColOrder <- normalColOrders){
+          while(fields(i) == null){
+            i +=1
+          }
+          val field = fields(i)
+          i +=1
+          val args:Array[Object] = Array(normalColOrder.toInt.asInstanceOf[Object],field)
+          method.invoke(composedValue,args:_*)
+        }
+        (key, composedValue.asInstanceOf[V])
       }
 
       override def close(): Unit = {
-//        if (cacheReader != null) {
+        //        if (cacheReader != null) {
         if (reader != null) {
           InputFileBlockHolder.unset()
           try {
-            if(cacheReader != null) cacheReader.close()
+            if (cacheReader != null) cacheReader.close()
             reader.close()
             println(s"**************split:*********${split.index}****${split.inputSplit.value.getLength}")
-//            println("!!!!!!!!!!!!!!!!!!resder:!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"+reader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier.getRowId)
-//            println(s"************cacheSplit:***********${split.index}****${cacheSplit.inputSplit.value.getLength}")
-//            println("!!!!!!!!!!!!!!cacheReader:!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"+cacheReader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier.getRowId)
-//            println(s"............................cacheInfo:${cacheInfo}")
-//            println(s"..................${jobConf.get(ColumnProjectionUtils.READ_COLUMN_NAMES_CONF_STR)}")
+            //            println("!!!!!!!!!!!!!!!!!!resder:!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"+reader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier.getRowId)
+            //            println(s"************cacheSplit:***********${split.index}****${cacheSplit.inputSplit.value.getLength}")
+            //            println("!!!!!!!!!!!!!!cacheReader:!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"+cacheReader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier.getRowId)
+            //            println(s"............................cacheInfo:${cacheInfo}")
+            //            println(s"..................${jobConf.get(ColumnProjectionUtils.READ_COLUMN_NAMES_CONF_STR)}")
           } catch {
             case e: Exception =>
               if (!ShutdownHookManager.inShutdown()) {
@@ -423,20 +557,15 @@ class HadoopRDD[K, V](
               }
           } finally {
             reader = null
-  //          cacheReader = null
           }
           if (getBytesReadCallback.isDefined) {
-//          if (getCacheBytesReadCallback.isDefined) {
-//            updateCacheBytesRead()
             updateBytesRead()
           } else if (split.inputSplit.value.isInstanceOf[FileSplit] ||
-                     split.inputSplit.value.isInstanceOf[CombineFileSplit]) {
+            split.inputSplit.value.isInstanceOf[CombineFileSplit]) {
             // If we can't get the bytes read from the FS stats, fall back to the split size,
             // which may be inaccurate.
             try {
               inputMetrics.incBytesRead(split.inputSplit.value.getLength)
-              print(s"coming*******************************************")
-//              inputMetrics.incBytesRead(cacheSplit.inputSplit.value.getLength)
             } catch {
               case e: java.io.IOException =>
                 logWarning("Unable to get input size to set InputMetrics for task", e)
@@ -445,6 +574,7 @@ class HadoopRDD[K, V](
         }
       }
     }
+  }
     new InterruptibleIterator[(K, V)](context, iter)
   }
 

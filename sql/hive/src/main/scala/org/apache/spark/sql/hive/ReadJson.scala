@@ -21,11 +21,14 @@ class ReadJson(tableName: String, jsonKeys: Array[String],jsonCols:Array[String]
   val dbName = "default"
   var jsonPath:String = null
   var jsonColOrders:String = null
+  var normalColOrders:String = null
 
 def this(tableName: String, jsonKeys: Array[String],jsonCols:Array[String],allCols:Array[String],sparkSession: SparkSession){
   this(tableName, jsonKeys,jsonCols)
 
-  jsonColOrders = getJsonColOrder(jsonCols,allCols)
+   val orders = getColOrder(jsonKeys,allCols)
+  jsonColOrders = orders._1
+  normalColOrders = orders._2
   val jsonPaths:ArrayBuffer[String] = composeJsonPath(jsonKeys,jsonCols)
   var jsonPathsOrder:ArrayBuffer[Int] = ArrayBuffer.empty
 
@@ -41,13 +44,20 @@ def this(tableName: String, jsonKeys: Array[String],jsonCols:Array[String],allCo
   indexOfJsonPath = sortedCols._1.mkString(",")
 }
 
-  def getJsonColOrder(jsonCols:Array[String],allCols:Array[String]):String={
+  def getColOrder(jsonKeys:Array[String],allCols:Array[String]):Tuple2[String,String]={
     var jsonColOrder:ArrayBuffer[Int] = ArrayBuffer.empty
-    for(jsonCol <- jsonCols){
-      jsonColOrder += allCols.indexOf(jsonCol)
+    var normalColOrder:ArrayBuffer[Int] = ArrayBuffer.empty
+    for(jsonKey <- jsonKeys){
+      jsonColOrder += allCols.indexOf(jsonKey)
     }
-    jsonColOrder.mkString(",")
+    val normalCols = allCols.filter(x => !jsonKeys.contains(x))
+    for(normalCol <- normalCols){
+      normalColOrder += allCols.indexOf(normalCol)
+    }
+    (jsonColOrder.mkString(","),normalColOrder.mkString(","))
   }
+
+
   def gettableName: String = {
     tableName //原数据库名+_+原表名
   }

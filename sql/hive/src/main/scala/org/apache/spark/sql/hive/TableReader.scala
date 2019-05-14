@@ -337,7 +337,9 @@ class HadoopTableReader(
           readJson.jsonPath,
           readJson.hiveQlTable.getMetadata.getProperty("columns"),
           readJson.indexOfJsonPath,
-          readJson.jsonColOrders)
+          readJson.jsonColOrders,
+          readJson.normalColOrders,
+          allCols)
       }
     }
     rdd.map(_._2)
