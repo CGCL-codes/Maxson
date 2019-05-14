@@ -43,8 +43,6 @@ object SaveORCHu {
     /**********************模拟读缓存，当语句中有path的时候，开启两个reader************************/
 
     val log = spark.sql("select get_json_object(path,'$.name')as path_name,get_json_object(path,'$.age') as path_age,frequency,time from newLog")
-    log.explain(true)
-    log.collect()
     log.show(10)
   }
 }
