@@ -14,7 +14,7 @@ object SaveORCHu {
       .config("spark.sql.codegen.wholeStage",false)
       .enableHiveSupport()
       .getOrCreate()
-//        import spark.implicits._
+        import spark.implicits._
 //        val  df = spark.sparkContext.textFile("examples/src/main/resources/train-zhang.txt").map(x => {
 //          val info = x.split(" ")
 //          Log(info(0),info(1).toInt,info(2))
@@ -42,7 +42,7 @@ object SaveORCHu {
     ////    log.show(10)
     /**********************模拟读缓存，当语句中有path的时候，开启两个reader************************/
 
-    val log = spark.sql("select get_json_object(path,'$.name')as path_name,get_json_object(path,'$.age') as path_age,frequency,time from newLog")
+    val log = spark.sql("select get_json_object(path,'$.name')as path_name,cast(get_json_object(path,'$.age') as string) as path_age,frequency,time from newLog")
     log.show(10)
   }
 }
