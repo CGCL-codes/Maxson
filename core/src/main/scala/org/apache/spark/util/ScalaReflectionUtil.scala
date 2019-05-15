@@ -20,7 +20,15 @@ object ScalaReflectionUtil {
     ru.runtimeMirror(Thread.currentThread().getContextClassLoader)
   }
 
-  //reflect method, method can't be curry
+  /**
+    * 反射非静态(非static)方法
+    * @param methodName: 方法名字
+    * @param allScope： 是否从父类中寻找，true: 先从本类找，本类找不到再从父类找 false: 只寻找当前类
+    * @param types: 方法的参数类型, 可以使用本类中提供的 ru.typeOf[T] 或者ru.typeOf(x) 获得
+    * @param x: 实例对象
+    * @tparam T: TypeTag[T] 用于记录实例类型
+    * @return 返回Scala MethodMirror,可以直接使用 `()` 调用
+    */
   def reflectMethod[T: ru.TypeTag : ClassTag](methodName: String, allScope: Boolean, types: ru.Type*)(x: T): ru.MethodMirror = {
     val instanceMirror = m.reflect(x)
     val methodSymbols = if (allScope) {
@@ -59,6 +67,12 @@ object ScalaReflectionUtil {
     methodMirror
   }
 
+  /**
+    * 反射构造方法
+    * @param types： 方法的参数类型, 可以使用本类中提供的 ru.typeOf[T] 或者ru.typeOf(x) 获得
+    * @tparam T: TypeTag[T] 用于记录实例类型
+    * @return 返回构造方法 Scala Method Mirror 可以直接使用 `()` 调用
+    */
   def reflectConstructorMethod[T: ru.TypeTag](types: ru.Type*): ru.MethodMirror = {
     // 也可以这样 val cm = ru.typeOf[T].typeSymbol.asClass
     val classSymbol = getTypeTag[T].tpe.typeSymbol.asClass
@@ -80,10 +94,18 @@ object ScalaReflectionUtil {
     constructorMethod
   }
 
+  /**
+    * 反射Java类中的静态方法，由于Scala的反射API无法反射Java的静态方法，所以需要使用Java的API
+    * @param methodName：方法名字
+    * @param allScope: 是否从父类中寻找，true: 先从本类找，本类找不到再从父类找 false: 只寻找当前类
+    * @param types: 方法的参数类型, 可以使用本类中提供的 ru.typeOf[T] 或者ru.typeOf(x) 获得
+    * @tparam T: TypeTag[T] 用于记录实例类型
+    * @return 返回java.reflect.Method, 需要使用method.invoke来调用
+    */
   def reflectJavaStaticMethod[T: ru.TypeTag](methodName: String, allScope: Boolean, types: Class[_]*): Method = {
     val clazz = getRuntimeClass[T]
     if (allScope) {
-      def _parents: Stream[Class[_]] = Stream(clazz) #::: _parents.map(_.getSuperclass)
+      def _parents: Seq[Class[_]] = Seq(clazz) ++ _parents.map(_.getSuperclass)
 
       val parents = _parents.takeWhile(_ != null).toList
 
@@ -106,6 +128,14 @@ object ScalaReflectionUtil {
     }
   }
 
+  /**
+    *
+    * @param fieldName: 字段名称
+    * @param allScope： 是否从父类中寻找，true: 先从本类找，本类找不到再从父类找 false: 只寻找当前类
+    * @param x： 实例对象
+    * @tparam T： TypeTag[T] 用于记录实例类型
+    * @return 返回Scala FiledMirror，可以直接调用 `get` `set`方法赋值，无需考虑是否私有
+    */
   def reflectFiled[T: ru.TypeTag : ClassTag](fieldName: String, allScope: Boolean = false)(x: T): ru.FieldMirror = {
     val instanceMirror = m.reflect(x)
     val fieldSymbol = if (allScope) {
@@ -127,10 +157,18 @@ object ScalaReflectionUtil {
     filedMirror
   }
 
+  /**
+    * 反射Java 类中静态字段
+    * 因为Scala反射API不支持反射Java类静态字段，因此该部分用Java反射API实现
+    * @param fieldName： 字段名
+    * @param allScope：是否从父类中寻找，true: 先从本类找，本类找不到再从父类找 false: 只寻找当前类
+    * @tparam T： TypeTag[T] 用于记录实例类型
+    * @return 返回java.reflect.Field  field.set(null, val) field.get(null, val)
+    */
   def reflectJavaStaticField[T: ru.TypeTag](fieldName: String, allScope: Boolean = false): Field = {
     val clazz = getRuntimeClass[T]
     if (allScope) {
-      def _parents: Stream[Class[_]] = Stream(clazz) #::: _parents.map(_.getSuperclass)
+      def _parents: Seq[Class[_]] = Seq(clazz) ++ _parents.map(_.getSuperclass)
 
       val parents = _parents.takeWhile(_ != null).toList
       val fields = parents.flatMap(_.getDeclaredFields)
