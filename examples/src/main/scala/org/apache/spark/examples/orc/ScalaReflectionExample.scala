@@ -1,7 +1,8 @@
 package org.apache.spark.examples.orc
 import org.apache.spark.examples.sql.hive.JavaBase
-import org.apache.spark.sql.hive.util.ScalaReflectionUtil
-import org.apache.spark.sql.hive.util.ScalaReflectionUtil._
+import org.apache.spark.util.ScalaReflectionUtil
+import org.apache.spark.util.ScalaReflectionUtil._
+
 /**
   * create with org.apache.spark.examples.orc
   * USER: husterfox

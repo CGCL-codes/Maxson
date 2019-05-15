@@ -1,5 +1,9 @@
-package org.apache.spark.sql.hive.util
+package org.apache.spark.util
 
+/**
+  * create with org.apache.spark.util
+  * USER: husterfox
+  */
 import java.lang.reflect.{Field, Method, Modifier}
 
 import scala.reflect.ClassTag
@@ -198,3 +202,4 @@ object ScalaReflectionUtil {
 
 
 }
+

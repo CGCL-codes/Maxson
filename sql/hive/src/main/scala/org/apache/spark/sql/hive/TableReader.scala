@@ -45,7 +45,6 @@ import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.unsafe.types.UTF8String
 import org.apache.spark.util.{SerializableConfiguration, Utils}
 
-import scala.collection.mutable
 
 /**
   * A trait for subclasses that handle table scans.
@@ -82,7 +81,6 @@ class HadoopTableReader(
     math.max(hadoopConf.getInt("mapreduce.job.maps", 1),
       sparkSession.sparkContext.defaultMinPartitions)
   }
-
   SparkHadoopUtil.get.appendS3AndSparkHadoopConfigurations(
     sparkSession.sparkContext.conf, hadoopConf)
 
@@ -310,7 +308,6 @@ class HadoopTableReader(
                                inputFormatClass: Class[InputFormat[Writable, Writable]]): RDD[Writable] = {
 
     val initializeJobConfFunc = HadoopTableReader.initializeLocalJobConfFunc(path, tableDesc) _
-
 
     var rdd: RDD[(Writable, Writable)] = null
     rdd = new HadoopRDD(
