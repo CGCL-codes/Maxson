@@ -144,17 +144,6 @@ class HadoopRDD[K, V](
 
   private val ignoreEmptySplits = sparkContext.conf.get(HADOOP_RDD_IGNORE_EMPTY_SPLITS)
 
-  protected def getCloneJobConf():JobConf = {
-    val conf: Configuration = broadcastedConf.value.value
-    HadoopRDD.CONFIGURATION_INSTANTIATION_LOCK.synchronized {
-      logDebug("Cloning Hadoop Configuration")
-      val newJobConf = new JobConf(conf)
-      if (!conf.isInstanceOf[JobConf]) {
-        initLocalJobConfFuncOpt.foreach(f => f(newJobConf))
-      }
-      newJobConf
-    }
-  }
 
   // Returns a JobConf that will be used on slaves to obtain input splits for Hadoop reads.
   protected def getJobConf(): JobConf = {
@@ -230,9 +219,7 @@ class HadoopRDD[K, V](
     array
   }
 
-//  var cacheTable:String = "log_path"
-//  var dirs:String = "file:/C:/Users/zyp/ali/spark/spark-warehouse/"+cacheTable
-  lazy val cacheSplits = getPartitions(cacheInfo.getCachePath)
+  lazy val cacheSplits = getPartitions(cacheInfo.cachePath)
 
   /**
     * zyp 获取cache文件的partitions
@@ -241,9 +228,10 @@ class HadoopRDD[K, V](
 
   def getPartitions(dirs:String): Array[Partition] ={
 
-    SparkHadoopUtil.get.addCredentials(cacheJobConf.value)
+    val cacheJobConf = broadCastedCacheConf.value.value.asInstanceOf[JobConf]
+    SparkHadoopUtil.get.addCredentials(cacheJobConf)
 
-    val allInputSplits = getInputFormat(cacheJobConf.value).getSplits(cacheJobConf.value, 0)
+    val allInputSplits = getInputFormat(cacheJobConf).getSplits(cacheJobConf, 0)
 
     val inputSplits = if (ignoreEmptySplits) {
       allInputSplits.filter(_.getLength > 0)
@@ -257,19 +245,6 @@ class HadoopRDD[K, V](
     }
     array
   }
-
-  private lazy val cacheJobConf = new SerializableJobConf(getCacheJobConf(cacheInfo.getCachePath))
-  def getCacheJobConf(dirs:String): JobConf ={
-    val newJobConf = getCloneJobConf()
-    newJobConf.set(FileInputFormat.INPUT_DIR,dirs)
-    newJobConf.set(OrcConf.INCLUDE_COLUMNS.getAttribute,cacheInfo.getJsonPath)
-    newJobConf.set(OrcConf.INCLUDE_COLUMNS.getHiveConfName,cacheInfo.getIndexOfJsonPath)
-//    newJobConf.set("columns.types","string")
-//    newJobConf.set("columns","path")
-    newJobConf.set(ColumnProjectionUtils.READ_COLUMN_NAMES_CONF_STR,"path")
-    return newJobConf
-  }
-
 
  val opt = sc.conf.getBoolean("spark.sql.json.optimize", false)
   override def compute(theSplit: Partition, context: TaskContext): InterruptibleIterator[(K, V)] = {
@@ -396,6 +371,7 @@ class HadoopRDD[K, V](
       if (cacheInfo != null) cacheSplit = cacheSplits(split.index).asInstanceOf[HadoopPartition]
       logInfo("Input split: " + split.inputSplit)
       private val jobConf = getJobConf()
+      private val cacheJobConf = broadCastedCacheConf.value.value.asInstanceOf[JobConf]
 
       private val inputMetrics = context.taskMetrics().inputMetrics
       private val existingBytesRead = inputMetrics.bytesRead
@@ -438,7 +414,7 @@ class HadoopRDD[K, V](
 
       if (cacheInfo != null) {
         cacheReader = try {
-          inputFormat.getRecordReader(cacheSplit.inputSplit.value, cacheJobConf.value, Reporter.NULL)
+          inputFormat.getRecordReader(cacheSplit.inputSplit.value, cacheJobConf, Reporter.NULL)
         } catch {
           case e: IOException if ignoreCorruptFiles =>
             logWarning(s"Skipped the rest content in the corrupted file: ${split.inputSplit}", e)
@@ -457,7 +433,6 @@ class HadoopRDD[K, V](
             finished = true
             null
         }
-      //      cacheReader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier.getRowId
       // Register an on-task-completion callback to close the input stream.
       context.addTaskCompletionListener { context =>
         // Update the bytes read before closing is to make sure lingering bytesRead statistics in
@@ -476,7 +451,7 @@ class HadoopRDD[K, V](
 
       val constructor = classOf[OrcStruct].getDeclaredConstructor(Array(classOf[Int]):_*)
       constructor.setAccessible(true)
-      val args = Array[Object](cacheInfo.allcols.length.asInstanceOf[Object])
+      val args = Array[Object](cacheInfo.allCols.length.asInstanceOf[Object])
       var composedValue = constructor.newInstance(args:_*)
 
       val method = composedValue.getClass.getDeclaredMethod("setFieldValue",Array(classOf[Int], classOf[Object]):_*)
@@ -500,21 +475,7 @@ class HadoopRDD[K, V](
         if (inputMetrics.recordsRead % SparkHadoopUtil.UPDATE_INPUT_METRICS_INTERVAL_RECORDS == 0) {
           updateBytesRead()
         }
-        //        (cachekey, cachevalue)
-
-        //        val method = value.getClass.getDeclaredMethod("setFieldValue",Array(classOf[Int], classOf[Object]):_*)
-        //        val fieldsRef = cachevalue.getClass.getDeclaredField("fields")
-        //        fieldsRef.setAccessible(true)
-        //        val fields = fieldsRef.get(cachevalue).asInstanceOf[Array[Object]]
-        //        val fields2 = fieldsRef.get(value).asInstanceOf[Array[Object]]
-        //        method.setAccessible(true)
-        //        if(fields(0).equals(fields2(2)) || fields(0) == fields2(2)){
-        //          println("********************I am wrong*************************")
-        //        }
-        //        val args: Array[Object] = Array(2.asInstanceOf[Object],fields(0))
-        //        method.invoke(value,args:_*)
-
-        val oldNewColMap = cacheInfo.colMapping
+        val oldNewColMap = cacheInfo.originalCacheJsonPathRelationMap
         val normalColOrders = cacheInfo.normalColOrders.split(",")
         val catchFields = fieldsRef.get(cachevalue).asInstanceOf[Array[Object]]
         val fields = fieldsRef.get(value).asInstanceOf[Array[Object]]
@@ -538,18 +499,12 @@ class HadoopRDD[K, V](
       }
 
       override def close(): Unit = {
-        //        if (cacheReader != null) {
         if (reader != null) {
           InputFileBlockHolder.unset()
           try {
             if (cacheReader != null) cacheReader.close()
             reader.close()
             println(s"**************split:*********${split.index}****${split.inputSplit.value.getLength}")
-            //            println("!!!!!!!!!!!!!!!!!!resder:!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"+reader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier.getRowId)
-            //            println(s"************cacheSplit:***********${split.index}****${cacheSplit.inputSplit.value.getLength}")
-            //            println("!!!!!!!!!!!!!!cacheReader:!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"+cacheReader.asInstanceOf[NullKeyRecordReader].getRecordIdentifier.getRowId)
-            //            println(s"............................cacheInfo:${cacheInfo}")
-            //            println(s"..................${jobConf.get(ColumnProjectionUtils.READ_COLUMN_NAMES_CONF_STR)}")
           } catch {
             case e: Exception =>
               if (!ShutdownHookManager.inShutdown()) {

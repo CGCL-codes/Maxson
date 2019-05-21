@@ -33,13 +33,14 @@ import org.apache.spark._
 import org.apache.spark.Partitioner._
 import org.apache.spark.annotation.{DeveloperApi, Since}
 import org.apache.spark.api.java.JavaRDD
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.internal.Logging
 import org.apache.spark.partial.BoundedDouble
 import org.apache.spark.partial.CountEvaluator
 import org.apache.spark.partial.GroupedCountEvaluator
 import org.apache.spark.partial.PartialResult
 import org.apache.spark.storage.{RDDBlockId, StorageLevel}
-import org.apache.spark.util.{BoundedPriorityQueue, Utils}
+import org.apache.spark.util.{BoundedPriorityQueue, SerializableConfiguration, Utils}
 import org.apache.spark.util.collection.{OpenHashMap, Utils => collectionUtils}
 import org.apache.spark.util.random.{BernoulliCellSampler, BernoulliSampler, PoissonSampler, SamplingUtils}
 
@@ -77,6 +78,7 @@ abstract class RDD[T: ClassTag](
   ) extends Serializable with Logging {
 
   var cacheInfo: CacheInfo = null
+  var broadCastedCacheConf: Broadcast[SerializableConfiguration] = null
  // var cacheInfo:mutable.HashMap[String,String] = mutable.HashMap.empty
 
   if (classOf[RDD[_]].isAssignableFrom(elementClassTag.runtimeClass)) {
