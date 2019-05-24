@@ -26,7 +26,7 @@ import scala.collection.immutable.Map
 import scala.reflect.ClassTag
 import org.apache.hadoop.conf.{Configurable, Configuration}
 import org.apache.hadoop.hive.ql.io.orc.OrcInputFormat.NullKeyRecordReader
-import org.apache.hadoop.hive.ql.io.orc.OrcStruct
+import org.apache.hadoop.hive.ql.io.orc.{OrcStructAccess, OrcStruct}
 import org.apache.hadoop.hive.serde2.ColumnProjectionUtils
 import org.apache.hadoop.mapred._
 import org.apache.hadoop.mapred.lib.CombineFileSplit
@@ -449,15 +449,16 @@ class HadoopRDD[K, V](
       private val cachekey: K = if (cacheReader == null) null.asInstanceOf[K] else cacheReader.createKey()
       private val cachevalue: V = if (cacheReader == null) null.asInstanceOf[V] else cacheReader.createValue()
 
-      val constructor = classOf[OrcStruct].getDeclaredConstructor(Array(classOf[Int]):_*)
-      constructor.setAccessible(true)
-      val args = Array[Object](cacheInfo.allCols.length.asInstanceOf[Object])
-      var composedValue = constructor.newInstance(args:_*)
-
-      val method = composedValue.getClass.getDeclaredMethod("setFieldValue",Array(classOf[Int], classOf[Object]):_*)
-      val fieldsRef = cachevalue.getClass.getDeclaredField("fields")
-      fieldsRef.setAccessible(true)
-      method.setAccessible(true)
+//      val constructor = classOf[OrcStruct].getDeclaredConstructor(Array(classOf[Int]):_*)
+//      constructor.setAccessible(true)
+//      val args = Array[Object](cacheInfo.allCols.length.asInstanceOf[Object])
+//      var composedValue = constructor.newInstance(args:_*)
+      val child = cacheInfo.allCols.length
+      var composedValue = OrcStructAccess.getOrcStruct(child)
+//      val method = composedValue.getClass.getDeclaredMethod("setFieldValue",Array(classOf[Int], classOf[Object]):_*)
+//      val fieldsRef = cachevalue.getClass.getDeclaredField("fields")
+//      fieldsRef.setAccessible(true)
+//      method.setAccessible(true)
 
 
       override def getNext(): (K, V) = {
@@ -477,26 +478,45 @@ class HadoopRDD[K, V](
         }
         val oldNewColMap = cacheInfo.originalCacheJsonPathRelationMap
         val normalColOrders = cacheInfo.normalColOrders.split(",")
-        val catchFields = fieldsRef.get(cachevalue).asInstanceOf[Array[Object]]
-        val fields = fieldsRef.get(value).asInstanceOf[Array[Object]]
+//        val cacheFields = fieldsRef.get(cachevalue).asInstanceOf[Array[Object]]
+//        val fields = fieldsRef.get(value).asInstanceOf[Array[Object]]
+
 
         for((catchCol,col) <- oldNewColMap){
-          val field = catchFields(catchCol.toInt)
-          val args:Array[Object] = Array(col.toInt.asInstanceOf[Object],field)
-          method.invoke(composedValue,args:_*)
+          val field =OrcStructAccess.getFieldValue(cachevalue.asInstanceOf[OrcStruct],catchCol.toInt)
+          OrcStructAccess.setFieldValue(composedValue,col.toInt,field)
         }
+        var i = 0
         if(cacheInfo.normalColOrders.nonEmpty) {
-          var i = 0
           for (normalColOrder <- normalColOrders) {
-            while (fields(i) == null) {
+            while (OrcStructAccess.getFieldValue(value.asInstanceOf[OrcStruct], i) == null) {
               i += 1
             }
-            val field = fields(i)
+            val field = OrcStructAccess.getFieldValue(value.asInstanceOf[OrcStruct], i)
             i += 1
-            val args: Array[Object] = Array(normalColOrder.toInt.asInstanceOf[Object], field)
-            method.invoke(composedValue, args: _*)
+            OrcStructAccess.setFieldValue(composedValue, normalColOrder.toInt, field)
           }
         }
+
+
+//        var i = 0
+//        for((catchCol,col) <- oldNewColMap){
+//          val field =OrcStructAccess.getFieldValue(cachevalue.asInstanceOf[OrcStruct],catchCol.toInt)
+//          OrcStructAccess.setFieldValue(composedValue,i,field)
+//          i +=1
+//        }
+//        var j =0
+//        for (normalColOrder <- normalColOrders) {
+//          while (OrcStructAccess.getFieldValue(value.asInstanceOf[OrcStruct], j) != null) {
+//            val field = OrcStructAccess.getFieldValue(value.asInstanceOf[OrcStruct], j)
+//            OrcStructAccess.setFieldValue(composedValue, normalColOrder.toInt, field)
+//            i += 1
+//          }
+//          if (OrcStructAccess.getFieldValue(value.asInstanceOf[OrcStruct], i) != null) {
+//            j += 1
+//          }
+//        }
+
         (key, composedValue.asInstanceOf[V])
       }
 
@@ -532,6 +552,11 @@ class HadoopRDD[K, V](
       }
     }
   }
+//    if(sc.conf.getBoolean("spark.sql.json.writeCache",false)){
+//      val splitIndex = theSplit.asInstanceOf[HadoopPartition].inputSplit.value.getLocations
+//    split.getPipeEnvVars().get("mapreduce_map_input_file").get
+//      sc.conf.set("")
+//    }
     new InterruptibleIterator[(K, V)](context, iter)
   }
 
