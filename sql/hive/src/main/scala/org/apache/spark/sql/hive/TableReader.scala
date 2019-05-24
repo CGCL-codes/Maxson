@@ -335,17 +335,16 @@ class HadoopTableReader(
         val normalColOrders = readJson.normalColOrders
         val originalCacheJsonPathRelationMap = readJson.originalCacheJsonPathRelationMap
         val broadCastedCacheConf = readJson._broadCastedCatchHadoopConf.asInstanceOf[Broadcast[SerializableConfiguration]]
-        rdd.cacheInfo = new CacheInfo(
+        rdd.asInstanceOf[HadoopRDD[Writable,Writable]].cacheInfo = new CacheInfo(
             dir,     //存储位置
             jsonColOrders  ,
             normalColOrders,
             originalCacheJsonPathRelationMap,
             allCols)
-        rdd.broadCastedCacheConf = broadCastedCacheConf
+        rdd.asInstanceOf[HadoopRDD[Writable,Writable]].broadCastedCacheConf = broadCastedCacheConf
         val cacheSplits = sparkSession.sparkContext.broadcast(rdd.asInstanceOf[HadoopRDD[Writable,Writable]].getPartitions(dir))
-        rdd.cacheSplits = cacheSplits
-
-      }
+        rdd.asInstanceOf[HadoopRDD[Writable,Writable]].cacheSplits = cacheSplits
+ }
     }
     rdd.map(_._2)
   }

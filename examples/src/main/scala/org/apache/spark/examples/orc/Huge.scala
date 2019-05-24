@@ -12,7 +12,7 @@ object Huge {
   def main(args: Array[String]): Unit = {
     val spark = SparkSession
       .builder()
-      .master("local[10]")
+      .master("local[1]")
       .config("spark.sql.catalogImplementation","hive")
       .config("spark.sql.json.optimize",true)
       .config("spark.sql.json.writeCache",true)
@@ -37,9 +37,5 @@ object Huge {
     println(s"readColTime:$readColTime")
 
   }
-
-
-
-
 }
 

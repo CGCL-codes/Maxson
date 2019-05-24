@@ -144,6 +144,10 @@ class HadoopRDD[K, V](
 
   private val ignoreEmptySplits = sparkContext.conf.get(HADOOP_RDD_IGNORE_EMPTY_SPLITS)
 
+  var cacheInfo: CacheInfo = null
+  var broadCastedCacheConf: Broadcast[SerializableConfiguration] = null
+  var cacheSplits:Broadcast[Array[Partition]] = null
+
 
   // Returns a JobConf that will be used on slaves to obtain input splits for Hadoop reads.
   protected def getJobConf(): JobConf = {
@@ -227,7 +231,7 @@ class HadoopRDD[K, V](
     */
 
   def getPartitions(dirs:String): Array[Partition] ={
-
+    println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     val cacheJobConf = broadCastedCacheConf.value.value.asInstanceOf[JobConf]
     SparkHadoopUtil.get.addCredentials(cacheJobConf)
 

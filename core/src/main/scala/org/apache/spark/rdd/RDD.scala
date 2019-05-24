@@ -77,10 +77,7 @@ abstract class RDD[T: ClassTag](
     @transient private var deps: Seq[Dependency[_]]
   ) extends Serializable with Logging {
 
-  var cacheInfo: CacheInfo = null
-  var broadCastedCacheConf: Broadcast[SerializableConfiguration] = null
-  var cacheSplits: Broadcast[Array[Partition]] = null
- // var cacheInfo:mutable.HashMap[String,String] = mutable.HashMap.empty
+
 
   if (classOf[RDD[_]].isAssignableFrom(elementClassTag.runtimeClass)) {
     // This is a warning instead of an exception in order to avoid breaking user programs that

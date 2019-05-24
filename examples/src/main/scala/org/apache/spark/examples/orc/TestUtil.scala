@@ -61,8 +61,8 @@ object TestUtil {
     val startTime = new Date().getTime
     for(i <-0 until times){
       val log = sparkSession.sql(s"select time,get_json_object(path,'$$.id') as path_id,get_json_object(path,'$$.url') as path_url,frequency from $tableName")
-//      log.foreachPartition(iter => println(iter.size))
-      log.show(10)
+      log.foreachPartition(iter => println(iter.size))
+//      log.show(10)
     }
     val endTime = new Date().getTime
     (endTime-startTime)/(times.toDouble*1000)
