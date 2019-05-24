@@ -219,7 +219,7 @@ class HadoopRDD[K, V](
     array
   }
 
-  lazy val cacheSplits = getPartitions(cacheInfo.cachePath)
+
 
   /**
     * zyp 获取cache文件的partitions
@@ -369,7 +369,7 @@ class HadoopRDD[K, V](
 
       private val split = theSplit.asInstanceOf[HadoopPartition]
       var cacheSplit: HadoopPartition = null
-      if (cacheInfo != null) cacheSplit = cacheSplits(split.index).asInstanceOf[HadoopPartition]
+      if (cacheInfo != null) cacheSplit = cacheSplits.value(split.index).asInstanceOf[HadoopPartition]
       logInfo("Input split: " + split.inputSplit)
       private val jobConf = getJobConf()
       private val cacheJobConf = broadCastedCacheConf.value.value.asInstanceOf[JobConf]

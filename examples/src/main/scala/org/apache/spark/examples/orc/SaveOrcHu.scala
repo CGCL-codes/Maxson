@@ -50,7 +50,7 @@ object SaveORCHu {
       s"""select frequency, get_json_object(path,'$$.id')as path_id,
          |get_json_object(path,'$$.body') as path_body,
          |time
-         | from $tableName""".stripMargin).foreachPartition(iter => count.add(iter.size))
+         | from $tableName""".stripMargin).show(10)
 
     val end = System.currentTimeMillis()
     println(s"cost time ${(end - start) / 1000}, count = ${count.value}")

@@ -21,7 +21,7 @@ object SaveTestTable {
     val tableName = "hugePath"
     val df = spark.sparkContext.textFile("/Users/husterfox/workspace/SparkDemo/train.txt").map(x => {
       val info = x.split("\\*")
-      Log(info(0), info(1).toInt, info(2))
+      Log1(info(0), info(1).toInt, info(2))
     }).toDF()
     spark.sql(s"drop table if exists $tableName")
     df.write.format("hive").option("fileFormat", "orc").saveAsTable(s"$tableName")
@@ -30,4 +30,6 @@ object SaveTestTable {
     spark.sql(s"drop table if exists default_$tableName")
     log_path.write.format("hive").option("fileFormat", "orc").saveAsTable(s"default_$tableName")
   }
+
+  case class Log1(path: String, frequency: Int, time:String)
 }

@@ -79,6 +79,7 @@ abstract class RDD[T: ClassTag](
 
   var cacheInfo: CacheInfo = null
   var broadCastedCacheConf: Broadcast[SerializableConfiguration] = null
+  var cacheSplits: Broadcast[Array[Partition]] = null
  // var cacheInfo:mutable.HashMap[String,String] = mutable.HashMap.empty
 
   if (classOf[RDD[_]].isAssignableFrom(elementClassTag.runtimeClass)) {

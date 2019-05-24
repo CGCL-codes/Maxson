@@ -320,6 +320,7 @@ class HadoopTableReader(
       _minSplitsPerRDD)
     // Only take the value (skip the key) because Hive works only with values.
     val conf = _broadcastedHadoopConf.value.value
+
     if (sparkSession.sparkContext.conf.getBoolean("spark.sql.json.optimize", false)) {
       val nonEmpty = conf.get("spark.hive.cache.json.keys").nonEmpty
       if (nonEmpty) {
@@ -341,6 +342,9 @@ class HadoopTableReader(
             originalCacheJsonPathRelationMap,
             allCols)
         rdd.broadCastedCacheConf = broadCastedCacheConf
+        val cacheSplits = sparkSession.sparkContext.broadcast(rdd.asInstanceOf[HadoopRDD[Writable,Writable]].getPartitions(dir))
+        rdd.cacheSplits = cacheSplits
+
       }
     }
     rdd.map(_._2)
