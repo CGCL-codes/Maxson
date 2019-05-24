@@ -43,8 +43,9 @@ object SaveORCHu {
         val start = System.currentTimeMillis()
         val count = spark.sparkContext.longAccumulator("count")
         spark.sql(
-          """select get_json_object(path,'$.id')as path_id,
-            |get_json_object(path,'$.body') as path_body
+          """select frequency, get_json_object(path,'$.id')as path_id,
+            |get_json_object(path,'$.body') as path_body,
+            |time
             | from hugePath""".stripMargin).foreachPartition(iter => count.add(iter.size))
         val end = System.currentTimeMillis()
         println(s"cost time ${(end-start)/1000}, count = ${count.value}")

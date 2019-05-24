@@ -74,32 +74,35 @@ case class HiveTableScanExec(
   override val output: Seq[Attribute] = {
     // Retrieve the original attributes based on expression ID so that capitalization matches.
     //requestedAttributes.map(originalAttributes)
-    requestedAttributes.map { attr =>
-      originalAttributesIncludeJson.get(attr.exprId) match {
-        case Some(attribute) => originalAttributes(attribute)
-        case None =>
-          assert(attr.name.contains(":"))
-          val function = attr.metadata.getString("function")
-          val rootId = ExprId(attr.metadata.getLong("rootId"))
-          val root = originalAttributesIncludeJson(rootId).name
-          val field = attr.metadata.getString("field")
-          val castTypeSuffix = if (attr.metadata.contains("castType")) {
-            s":${attr.metadata.getString("castType")}"
-          } else {
-            ""
-          }
-
-          val name = s"$function:$root:$field$castTypeSuffix"
-          val metadata = new MetadataBuilder()
-            .withMetadata(attr.metadata)
-            .putString("root", root)
-            .build()
-          val newAttr = attr.withName(name).withMetadata(metadata)
-          originalAttributesIncludeJson.update(newAttr.exprId, newAttr)
-          newAttr
+    val originalIds = requestedAttributes.filter(!_.name.contains(":")).map(_.exprId)
+    val originalCols = relation.output.filter(item => originalIds.contains(item.exprId))
+    val jsonCols = requestedAttributes.filter(_.name.contains(":")).map { attr =>
+      assert(attr.name.contains(":"))
+      val function = attr.metadata.getString("function")
+      val rootId = ExprId(attr.metadata.getLong("rootId"))
+      val root = originalAttributesIncludeJson(rootId).name
+      val field = attr.metadata.getString("field")
+      val castTypeSuffix = if (attr.metadata.contains("castType")) {
+        s":${attr.metadata.getString("castType")}"
+      } else {
+        ""
       }
+      val name = s"$function:$root:$field$castTypeSuffix"
+      val metadata = new MetadataBuilder()
+        .withMetadata(attr.metadata)
+        .putString("root", root)
+        .build()
+      val newAttr = attr.withName(name).withMetadata(metadata)
+      originalAttributesIncludeJson.update(newAttr.exprId, newAttr)
+      newAttr
     }
+    println(s"originalTableSchema: ${relation.output}")
+    println(s"***originalCols: *****************$originalCols ************************")
+    println(s"***JsonCols: *****************$jsonCols ************************")
+
+    originalCols ++ jsonCols
   }
+
   //json列的名字 s"$function:$root:$field$castTypeSuffix"
   //其余列的名字就是其余列
   private val columsNames = schema.fieldNames
