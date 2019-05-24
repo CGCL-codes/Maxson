@@ -13,7 +13,7 @@ object TestUtil {
      import spark.implicits._
      val  df = spark.sparkContext.textFile(path).map(x => {
        val info = x.split("\\*")
-       Log(info(0),info(1).toInt,info(2))
+       Log(info(0),info(2),info(1).toInt)
      }).toDF()
      spark.sql(s"DROP TABLE IF EXISTS $tableName")
      df.write.format("hive").option("fileFormat","orc").saveAsTable(tableName)
@@ -61,10 +61,7 @@ object TestUtil {
     val startTime = new Date().getTime
     for(i <-0 until times){
       val log = sparkSession.sql(s"select time,get_json_object(path,'$$.id') as path_id,get_json_object(path,'$$.url') as path_url,frequency from $tableName")
-      log.foreach(x =>{
-        x.get(0)
-        x.get(1)
-      })
+//      log.foreachPartition(iter => println(iter.size))
       log.show(10)
     }
     val endTime = new Date().getTime
@@ -72,6 +69,6 @@ object TestUtil {
   }
 
 }
-case class Log(path:String,frequency: Int,time:String)
+case class Log(path:String,time:String,frequency: Int)
 
 

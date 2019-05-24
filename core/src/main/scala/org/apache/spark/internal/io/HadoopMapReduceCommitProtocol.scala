@@ -27,9 +27,12 @@ import org.apache.hadoop.fs.Path
 import org.apache.hadoop.mapreduce._
 import org.apache.hadoop.mapreduce.lib.output.FileOutputCommitter
 import org.apache.hadoop.mapreduce.task.TaskAttemptContextImpl
-
+import org.apache.spark.SparkEnv
 import org.apache.spark.internal.Logging
 import org.apache.spark.mapred.SparkHadoopMapRedUtil
+import org.apache.spark.rdd.InputFileBlockHolder
+
+import scala.util.matching.Regex
 
 /**
  * An [[FileCommitProtocol]] implementation backed by an underlying Hadoop OutputCommitter
@@ -140,7 +143,13 @@ class HadoopMapReduceCommitProtocol(
     // The file name looks like part-00000-2dd664f9-d2c4-4ffe-878f-c6c70c1fb0cb_00003-c000.parquet
     // Note that %05d does not truncate the split number, so if we have more than 100000 tasks,
     // the file name is fine and won't overflow.
-    val split = taskContext.getTaskAttemptID.getTaskID.getId
+    var split = taskContext.getTaskAttemptID.getTaskID.getId
+    //TODO:zyp 加判断条件
+    if(SparkEnv.get.conf.getBoolean("spark.sql.json.writeCache",false)){
+      val path = InputFileBlockHolder.getInputFilePath.toString
+      val pattern =  new Regex("""(?s)part-(\d+)-""")
+      split = pattern.findFirstMatchIn(path).get.group(1).toInt
+    }
     f"part-$split%05d-$jobId$ext"
   }
 

@@ -321,12 +321,12 @@ class HadoopTableReader(
     // Only take the value (skip the key) because Hive works only with values.
     val conf = _broadcastedHadoopConf.value.value
     if (sparkSession.sparkContext.conf.getBoolean("spark.sql.json.optimize", false)) {
-      val tableName = conf.get("spark.hive.cache.json.database") + "_" + conf.get("spark.hive.cache.json.table")
       val nonEmpty = conf.get("spark.hive.cache.json.keys").nonEmpty
-      val jsonKeys = conf.get("spark.hive.cache.json.keys").split(",")
-      val jsonCols = conf.get("spark.hive.cache.json.cols").split(",")
-      val allCols = conf.get("spark.hive.cache.json.col.order").split(",")
       if (nonEmpty) {
+        val tableName = conf.get("spark.hive.cache.json.database") + "_" + conf.get("spark.hive.cache.json.table")
+        val jsonKeys = conf.get("spark.hive.cache.json.keys").split(",")
+        val jsonCols = conf.get("spark.hive.cache.json.cols").split(",")
+        val allCols = conf.get("spark.hive.cache.json.col.order").split(",")
         val readJson = new ReadJson(tableName, jsonKeys, jsonCols, allCols, sparkSession, _broadcastedHadoopConf.asInstanceOf[Broadcast[SerializableConfiguration]]) //注意参数的格式
         //todo 将readjson值提出来
         val dir = readJson.dir

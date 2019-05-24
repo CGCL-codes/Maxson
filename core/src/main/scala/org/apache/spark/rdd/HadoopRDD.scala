@@ -246,11 +246,12 @@ class HadoopRDD[K, V](
     array
   }
 
- val opt = sc.conf.getBoolean("spark.sql.json.optimize", false)
+  val opt = sc.conf.getBoolean("spark.sql.json.optimize", false)
+  val nonEmpty = broadcastedConf.value.value.get("spark.hive.cache.json.keys").nonEmpty
   override def compute(theSplit: Partition, context: TaskContext): InterruptibleIterator[(K, V)] = {
 
     var iter:NextIterator[(K,V)] = null
-    if (!opt) {
+    if (!opt|| !nonEmpty) {
        iter = new NextIterator[(K, V)] {
         private val split = theSplit.asInstanceOf[HadoopPartition]
         logInfo("Input split: " + split.inputSplit)
@@ -449,18 +450,9 @@ class HadoopRDD[K, V](
       private val cachekey: K = if (cacheReader == null) null.asInstanceOf[K] else cacheReader.createKey()
       private val cachevalue: V = if (cacheReader == null) null.asInstanceOf[V] else cacheReader.createValue()
 
-//      val constructor = classOf[OrcStruct].getDeclaredConstructor(Array(classOf[Int]):_*)
-//      constructor.setAccessible(true)
-//      val args = Array[Object](cacheInfo.allCols.length.asInstanceOf[Object])
-//      var composedValue = constructor.newInstance(args:_*)
+
       val child = cacheInfo.allCols.length
       var composedValue = OrcStructAccess.getOrcStruct(child)
-//      val method = composedValue.getClass.getDeclaredMethod("setFieldValue",Array(classOf[Int], classOf[Object]):_*)
-//      val fieldsRef = cachevalue.getClass.getDeclaredField("fields")
-//      fieldsRef.setAccessible(true)
-//      method.setAccessible(true)
-
-
       override def getNext(): (K, V) = {
         try {
           if (cacheReader != null) cacheReader.next(cachekey, cachevalue)
@@ -497,26 +489,6 @@ class HadoopRDD[K, V](
             OrcStructAccess.setFieldValue(composedValue, normalColOrder.toInt, field)
           }
         }
-
-
-//        var i = 0
-//        for((catchCol,col) <- oldNewColMap){
-//          val field =OrcStructAccess.getFieldValue(cachevalue.asInstanceOf[OrcStruct],catchCol.toInt)
-//          OrcStructAccess.setFieldValue(composedValue,i,field)
-//          i +=1
-//        }
-//        var j =0
-//        for (normalColOrder <- normalColOrders) {
-//          while (OrcStructAccess.getFieldValue(value.asInstanceOf[OrcStruct], j) != null) {
-//            val field = OrcStructAccess.getFieldValue(value.asInstanceOf[OrcStruct], j)
-//            OrcStructAccess.setFieldValue(composedValue, normalColOrder.toInt, field)
-//            i += 1
-//          }
-//          if (OrcStructAccess.getFieldValue(value.asInstanceOf[OrcStruct], i) != null) {
-//            j += 1
-//          }
-//        }
-
         (key, composedValue.asInstanceOf[V])
       }
 
