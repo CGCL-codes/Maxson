@@ -485,15 +485,17 @@ class HadoopRDD[K, V](
           val args:Array[Object] = Array(col.toInt.asInstanceOf[Object],field)
           method.invoke(composedValue,args:_*)
         }
-        var i = 0
-        for(normalColOrder <- normalColOrders){
-          while(fields(i) == null){
-            i +=1
+        if(cacheInfo.normalColOrders.nonEmpty) {
+          var i = 0
+          for (normalColOrder <- normalColOrders) {
+            while (fields(i) == null) {
+              i += 1
+            }
+            val field = fields(i)
+            i += 1
+            val args: Array[Object] = Array(normalColOrder.toInt.asInstanceOf[Object], field)
+            method.invoke(composedValue, args: _*)
           }
-          val field = fields(i)
-          i +=1
-          val args:Array[Object] = Array(normalColOrder.toInt.asInstanceOf[Object],field)
-          method.invoke(composedValue,args:_*)
         }
         (key, composedValue.asInstanceOf[V])
       }

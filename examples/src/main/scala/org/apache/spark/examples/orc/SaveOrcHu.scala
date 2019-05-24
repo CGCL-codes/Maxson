@@ -11,7 +11,6 @@ object SaveORCHu {
       .config("spark.sql.catalogImplementation", "hive")
       .config("spark.sql.json.optimize", true)
       .config("spark.network.timeout", 3600)
-      .config("spark.executor.heartbeatInterval", 60)
       .config("spark.sql.codegen.wholeStage", false)
       .enableHiveSupport()
       .getOrCreate()
@@ -45,11 +44,9 @@ object SaveORCHu {
 
     val log = spark.sql(
       """select get_json_object(path,'$.name')as path_name,
-        |get_json_object(path,'$.age')  as path_age,
-        |frequency,
-        |time
+        |get_json_object(path,'$.age') as path_age
         | from newLog""".stripMargin)
-    log.count()
+    log.show(10)
   }
 }
 
