@@ -13,15 +13,22 @@ object PerformanceTest {
       .builder()
       .master("local")
       .config("spark.sql.catalogImplementation","hive")
-      .config("spark.sql.json.optimize",false)
+      .config("spark.sql.json.optimize",true)
       .enableHiveSupport()
       .getOrCreate()
 
     val startTime = new Date().getTime
-    val log = spark.sql("select frequency,time,get_json_object(path,'$.name')as path_name,get_json_object(path,'$.age') as path_age from newLog " +
-      "where get_json_object(path,'$.age') is null or get_json_object(path,'$.name') is null")
-
-    log.show(10)
+//    val log = spark.sql("select path from newLog ")
+//    val log = spark.sql("select get_json_object(path,'$.name')as path_name from newLog ")
+//    val log = spark.sql("select frequency,get_json_object(path,'$.age') as path_age from newLog ")
+//  val log = spark.sql("select path_name,path_age from default_newLog")
+    val log = spark.sql("select frequency,time,get_json_object(path,'$.age') as path_age,get_json_object(path,'$.name')as path_name from newLog")
+    log.foreach(x=>{
+      x.get(0)
+      x.get(1)
+      x.get(2)
+      x.get(3)
+    })
     val endTime = new Date().getTime
     println(endTime-startTime)
   }

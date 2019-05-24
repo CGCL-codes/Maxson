@@ -42,11 +42,14 @@ object SaveORC {
     ////    log.show(10)
     /**********************模拟读缓存，当语句中有path的时候，开启两个reader************************/
 //
-    val log = spark.sql("select frequency,time,get_json_object(path,'$.name')as path_name,get_json_object(path,'$.age') as path_age from newLog")
-   // log.collect()
+   //val log = spark.sql("select time,get_json_object(path,'$.id')as path_name,frequency,get_json_object(path,'$.url') as path_age from huge")
+    val log = spark.sql("select * from huge")
+
+//   // log.collect()
     log.show(10)
   }
 }
 
 //case class People(name:String,age:String)
-case class Log(path:String,frequency: Int,time:String)
+
+

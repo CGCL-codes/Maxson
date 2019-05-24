@@ -328,13 +328,19 @@ class HadoopTableReader(
       val allCols = conf.get("spark.hive.cache.json.col.order").split(",")
       if (nonEmpty) {
         val readJson = new ReadJson(tableName, jsonKeys, jsonCols, allCols, sparkSession, _broadcastedHadoopConf.asInstanceOf[Broadcast[SerializableConfiguration]]) //注意参数的格式
+        //todo 将readjson值提出来
+        val dir = readJson.dir
+        val jsonColOrders = readJson.jsonColOrders
+        val normalColOrders = readJson.normalColOrders
+        val originalCacheJsonPathRelationMap = readJson.originalCacheJsonPathRelationMap
+        val broadCastedCacheConf = readJson._broadCastedCatchHadoopConf.asInstanceOf[Broadcast[SerializableConfiguration]]
         rdd.cacheInfo = new CacheInfo(
-          readJson.dir,
-          readJson.jsonColOrders,
-          readJson.normalColOrders,
-          readJson.originalCacheJsonPathRelationMap,
-          allCols)
-        rdd.broadCastedCacheConf = readJson._broadCastedCatchHadoopConf.asInstanceOf[Broadcast[SerializableConfiguration]]
+            dir,     //存储位置
+            jsonColOrders  ,
+            normalColOrders,
+            originalCacheJsonPathRelationMap,
+            allCols)
+        rdd.broadCastedCacheConf = broadCastedCacheConf
       }
     }
     rdd.map(_._2)
