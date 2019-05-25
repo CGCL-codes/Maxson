@@ -15,10 +15,11 @@ object SaveTestTable {
       .config("spark.sql.json.optimize", false)
       .config("spark.network.timeout", 3600)
       .config("spark.sql.codegen.wholeStage", false)
+      .config("spark.sql.json.writeCache",true)
       .enableHiveSupport()
       .getOrCreate()
     import spark.implicits._
-    val tableName = "hugePath"
+    val tableName = "giantPath"
     val df = spark.sparkContext.textFile("/Users/husterfox/workspace/SparkDemo/train.txt").map(x => {
       val info = x.split("\\*")
       Log1(info(0), info(1).toInt, info(2))
@@ -26,7 +27,7 @@ object SaveTestTable {
     spark.sql(s"drop table if exists $tableName")
     df.write.format("hive").option("fileFormat", "orc").saveAsTable(s"$tableName")
 
-    val log_path = spark.sql(s"select get_json_object(path,'$$.id') as path_id,get_json_object(path,'$$.body')as path_body from $tableName")
+    val log_path = spark.sql(s"select get_json_object(path,'$$.id') as path_id,get_json_object(path,'$$.html_url')as path_body from $tableName")
     spark.sql(s"drop table if exists default_$tableName")
     log_path.write.format("hive").option("fileFormat", "orc").saveAsTable(s"default_$tableName")
   }

@@ -48,8 +48,8 @@ import org.apache.spark.util.{NextIterator, SerializableConfiguration, Serializa
 import scala.collection.mutable
 
 /**
- * A Spark split class that wraps around a Hadoop InputSplit.
- */
+  * A Spark split class that wraps around a Hadoop InputSplit.
+  */
 private[spark] class HadoopPartition(rddId: Int, override val index: Int, s: InputSplit)
   extends Partition {
 
@@ -60,9 +60,10 @@ private[spark] class HadoopPartition(rddId: Int, override val index: Int, s: Inp
   override def equals(other: Any): Boolean = super.equals(other)
 
   /**
-   * Get any environment variables that should be added to the users environment when running pipes
-   * @return a Map with the environment variables and corresponding values, it could be empty
-   */
+    * Get any environment variables that should be added to the users environment when running pipes
+    *
+    * @return a Map with the environment variables and corresponding values, it could be empty
+    */
   def getPipeEnvVars(): Map[String, String] = {
     val envVars: Map[String, String] = if (inputSplit.value.isInstanceOf[FileSplit]) {
       val is: FileSplit = inputSplit.value.asInstanceOf[FileSplit]
@@ -78,33 +79,32 @@ private[spark] class HadoopPartition(rddId: Int, override val index: Int, s: Inp
 }
 
 /**
- * :: DeveloperApi ::
- * An RDD that provides core functionality for reading data stored in Hadoop (e.g., files in HDFS,
- * sources in HBase, or S3), using the older MapReduce API (`org.apache.hadoop.mapred`).
- *
- * @param sc The SparkContext to associate the RDD with.
- * @param broadcastedConf A general Hadoop Configuration, or a subclass of it. If the enclosed
- *   variable references an instance of JobConf, then that JobConf will be used for the Hadoop job.
- *   Otherwise, a new JobConf will be created on each slave using the enclosed Configuration.
- * @param initLocalJobConfFuncOpt Optional closure used to initialize any JobConf that HadoopRDD
- *     creates.
- * @param inputFormatClass Storage format of the data to be read.
- * @param keyClass Class of the key associated with the inputFormatClass.
- * @param valueClass Class of the value associated with the inputFormatClass.
- * @param minPartitions Minimum number of HadoopRDD partitions (Hadoop Splits) to generate.
- *
- * @note Instantiating this class directly is not recommended, please use
- * `org.apache.spark.SparkContext.hadoopRDD()`
- */
+  * :: DeveloperApi ::
+  * An RDD that provides core functionality for reading data stored in Hadoop (e.g., files in HDFS,
+  * sources in HBase, or S3), using the older MapReduce API (`org.apache.hadoop.mapred`).
+  *
+  * @param sc                      The SparkContext to associate the RDD with.
+  * @param broadcastedConf         A general Hadoop Configuration, or a subclass of it. If the enclosed
+  *                                variable references an instance of JobConf, then that JobConf will be used for the Hadoop job.
+  *                                Otherwise, a new JobConf will be created on each slave using the enclosed Configuration.
+  * @param initLocalJobConfFuncOpt Optional closure used to initialize any JobConf that HadoopRDD
+  *                                creates.
+  * @param inputFormatClass        Storage format of the data to be read.
+  * @param keyClass                Class of the key associated with the inputFormatClass.
+  * @param valueClass              Class of the value associated with the inputFormatClass.
+  * @param minPartitions           Minimum number of HadoopRDD partitions (Hadoop Splits) to generate.
+  * @note Instantiating this class directly is not recommended, please use
+  *       `org.apache.spark.SparkContext.hadoopRDD()`
+  */
 @DeveloperApi
 class HadoopRDD[K, V](
-    sc: SparkContext,
-    broadcastedConf: Broadcast[SerializableConfiguration],
-    initLocalJobConfFuncOpt: Option[JobConf => Unit],
-    inputFormatClass: Class[_ <: InputFormat[K, V]],
-    keyClass: Class[K],
-    valueClass: Class[V],
-    minPartitions: Int)
+                       sc: SparkContext,
+                       broadcastedConf: Broadcast[SerializableConfiguration],
+                       initLocalJobConfFuncOpt: Option[JobConf => Unit],
+                       inputFormatClass: Class[_ <: InputFormat[K, V]],
+                       keyClass: Class[K],
+                       valueClass: Class[V],
+                       minPartitions: Int)
   extends RDD[(K, V)](sc, Nil) with Logging {
 
   if (initLocalJobConfFuncOpt.isDefined) {
@@ -112,12 +112,12 @@ class HadoopRDD[K, V](
   }
 
   def this(
-      sc: SparkContext,
-      conf: JobConf,
-      inputFormatClass: Class[_ <: InputFormat[K, V]],
-      keyClass: Class[K],
-      valueClass: Class[V],
-      minPartitions: Int) = {
+            sc: SparkContext,
+            conf: JobConf,
+            inputFormatClass: Class[_ <: InputFormat[K, V]],
+            keyClass: Class[K],
+            valueClass: Class[V],
+            minPartitions: Int) = {
     this(
       sc,
       sc.broadcast(new SerializableConfiguration(conf))
@@ -128,7 +128,6 @@ class HadoopRDD[K, V](
       valueClass,
       minPartitions)
   }
-
 
 
   protected val jobConfCacheKey: String = "rdd_%d_job_conf".format(id)
@@ -146,7 +145,7 @@ class HadoopRDD[K, V](
 
   var cacheInfo: CacheInfo = null
   var broadCastedCacheConf: Broadcast[SerializableConfiguration] = null
-  var cacheSplits:Broadcast[Array[Partition]] = null
+  var cacheSplits: Broadcast[Array[Partition]] = null
 
 
   // Returns a JobConf that will be used on slaves to obtain input splits for Hadoop reads.
@@ -190,8 +189,8 @@ class HadoopRDD[K, V](
               initLocalJobConfFuncOpt.foreach(f => f(newJobConf))
               HadoopRDD.putCachedMetadata(jobConfCacheKey, newJobConf)
               newJobConf
+            }
           }
-        }
       }
     }
   }
@@ -224,13 +223,13 @@ class HadoopRDD[K, V](
   }
 
 
-
   /**
     * zyp 获取cache文件的partitions
+    *
     * @return
     */
 
-  def getPartitions(dirs:String): Array[Partition] ={
+  def getPartitions(dirs: String): Array[Partition] = {
     println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     val cacheJobConf = broadCastedCacheConf.value.value.asInstanceOf[JobConf]
     SparkHadoopUtil.get.addCredentials(cacheJobConf)
@@ -244,19 +243,29 @@ class HadoopRDD[K, V](
     }
     val array = new Array[Partition](inputSplits.size)
     for (i <- 0 until inputSplits.size) {
-      array(i) = new HadoopPartition(cacheId , i, inputSplits(i))
-      cacheId +=1
+      array(i) = new HadoopPartition(cacheId, i, inputSplits(i))
+      cacheId += 1
     }
     array
   }
 
   val opt = sc.conf.getBoolean("spark.sql.json.optimize", false)
-  val nonEmpty = broadcastedConf.value.value.get("spark.hive.cache.json.keys").nonEmpty
+
+  val nonEmpty = if (opt) {
+    if (broadcastedConf.value.value.get("spark.hive.cache.json.keys") == null) {
+      false
+    } else {
+      broadcastedConf.value.value.get("spark.hive.cache.json.keys").nonEmpty
+    }
+  } else {
+    false
+  }
+
   override def compute(theSplit: Partition, context: TaskContext): InterruptibleIterator[(K, V)] = {
 
-    var iter:NextIterator[(K,V)] = null
-    if (!opt|| !nonEmpty) {
-       iter = new NextIterator[(K, V)] {
+    var iter: NextIterator[(K, V)] = null
+    if (!opt || !nonEmpty) {
+      iter = new NextIterator[(K, V)] {
         private val split = theSplit.asInstanceOf[HadoopPartition]
         logInfo("Input split: " + split.inputSplit)
         private val jobConf = getJobConf()
@@ -333,7 +342,7 @@ class HadoopRDD[K, V](
           if (inputMetrics.recordsRead % SparkHadoopUtil.UPDATE_INPUT_METRICS_INTERVAL_RECORDS == 0) {
             updateBytesRead()
           }
-          (key,value)
+          (key, value)
         }
 
         override def close(): Unit = {
@@ -369,178 +378,178 @@ class HadoopRDD[K, V](
 
 
     } else {
-    iter = new NextIterator[(K, V)] {
+      iter = new NextIterator[(K, V)] {
 
-      private val split = theSplit.asInstanceOf[HadoopPartition]
-      var cacheSplit: HadoopPartition = null
-      if (cacheInfo != null) cacheSplit = cacheSplits.value(split.index).asInstanceOf[HadoopPartition]
-      logInfo("Input split: " + split.inputSplit)
-      private val jobConf = getJobConf()
-      private val cacheJobConf = broadCastedCacheConf.value.value.asInstanceOf[JobConf]
+        private val split = theSplit.asInstanceOf[HadoopPartition]
+        var cacheSplit: HadoopPartition = null
+        if (cacheInfo != null) cacheSplit = cacheSplits.value(split.index).asInstanceOf[HadoopPartition]
+        logInfo("Input split: " + split.inputSplit)
+        private val jobConf = getJobConf()
+        private val cacheJobConf = broadCastedCacheConf.value.value.asInstanceOf[JobConf]
 
-      private val inputMetrics = context.taskMetrics().inputMetrics
-      private val existingBytesRead = inputMetrics.bytesRead
+        private val inputMetrics = context.taskMetrics().inputMetrics
+        private val existingBytesRead = inputMetrics.bytesRead
 
-      // Sets InputFileBlockHolder for the file block's information
-      split.inputSplit.value match {
-        case fs: FileSplit =>
-          InputFileBlockHolder.set(fs.getPath.toString, fs.getStart, fs.getLength)
-        case _ =>
-          InputFileBlockHolder.unset()
-      }
-
-
-      // Find a function that will return the FileSystem bytes read by this thread. Do this before
-      // creating RecordReader, because RecordReader's constructor might read some bytes
-      private val getBytesReadCallback: Option[() => Long] = split.inputSplit.value match {
-        case _: FileSplit | _: CombineFileSplit =>
-          Some(SparkHadoopUtil.get.getFSBytesReadOnThreadCallback())
-        case _ => None
-      }
-
-
-      // We get our input bytes from thread-local Hadoop FileSystem statistics.
-      // If we do a coalesce, however, we are likely to compute multiple partitions in the same
-      // task and in the same thread, in which case we need to avoid override values written by
-      // previous partitions (SPARK-13071).
-      private def updateBytesRead(): Unit = {
-        getBytesReadCallback.foreach { getBytesRead =>
-          inputMetrics.setBytesRead(existingBytesRead + getBytesRead())
+        // Sets InputFileBlockHolder for the file block's information
+        split.inputSplit.value match {
+          case fs: FileSplit =>
+            InputFileBlockHolder.set(fs.getPath.toString, fs.getStart, fs.getLength)
+          case _ =>
+            InputFileBlockHolder.unset()
         }
-      }
 
 
-      private var reader: RecordReader[K, V] = null
-      private var cacheReader: RecordReader[K, V] = null
-      private val inputFormat = getInputFormat(jobConf)
-      HadoopRDD.addLocalConfiguration(
-        new SimpleDateFormat("yyyyMMddHHmmss", Locale.US).format(createTime),
-        context.stageId, theSplit.index, context.attemptNumber, jobConf)
-
-      if (cacheInfo != null) {
-        cacheReader = try {
-          inputFormat.getRecordReader(cacheSplit.inputSplit.value, cacheJobConf, Reporter.NULL)
-        } catch {
-          case e: IOException if ignoreCorruptFiles =>
-            logWarning(s"Skipped the rest content in the corrupted file: ${split.inputSplit}", e)
-            finished = true
-            null
+        // Find a function that will return the FileSystem bytes read by this thread. Do this before
+        // creating RecordReader, because RecordReader's constructor might read some bytes
+        private val getBytesReadCallback: Option[() => Long] = split.inputSplit.value match {
+          case _: FileSplit | _: CombineFileSplit =>
+            Some(SparkHadoopUtil.get.getFSBytesReadOnThreadCallback())
+          case _ => None
         }
-      }
 
 
-      reader =
-        try {
-          inputFormat.getRecordReader(split.inputSplit.value, jobConf, Reporter.NULL)
-        } catch {
-          case e: IOException if ignoreCorruptFiles =>
-            logWarning(s"Skipped the rest content in the corrupted file: ${split.inputSplit}", e)
-            finished = true
-            null
-        }
-      // Register an on-task-completion callback to close the input stream.
-      context.addTaskCompletionListener { context =>
-        // Update the bytes read before closing is to make sure lingering bytesRead statistics in
-        // this thread get correctly added.
-        updateBytesRead()
-        closeIfNeeded()
-      }
-
-      private val key: K = if (reader == null) null.asInstanceOf[K] else reader.createKey()
-      private val value: V = if (reader == null) null.asInstanceOf[V] else reader.createValue()
-
-
-
-      private val cachekey: K = if (cacheReader == null) null.asInstanceOf[K] else cacheReader.createKey()
-      private val cachevalue: V = if (cacheReader == null) null.asInstanceOf[V] else cacheReader.createValue()
-
-
-      val child = cacheInfo.allCols.length
-      var composedValue = OrcStructAccess.getOrcStruct(child)
-      override def getNext(): (K, V) = {
-        try {
-          if (cacheReader != null) cacheReader.next(cachekey, cachevalue)
-          finished = !reader.next(key, value)
-        } catch {
-          case e: IOException if ignoreCorruptFiles =>
-            logWarning(s"Skipped the rest content in the corrupted file: ${split.inputSplit}", e)
-            finished = true
-        }
-        if (!finished) {
-          inputMetrics.incRecordsRead(1)
-        }
-        if (inputMetrics.recordsRead % SparkHadoopUtil.UPDATE_INPUT_METRICS_INTERVAL_RECORDS == 0) {
-          updateBytesRead()
-        }
-        val oldNewColMap = cacheInfo.originalCacheJsonPathRelationMap
-        val normalColOrders = cacheInfo.normalColOrders.split(",")
-//        val cacheFields = fieldsRef.get(cachevalue).asInstanceOf[Array[Object]]
-//        val fields = fieldsRef.get(value).asInstanceOf[Array[Object]]
-
-
-        for((catchCol,col) <- oldNewColMap){
-          val field =OrcStructAccess.getFieldValue(cachevalue.asInstanceOf[OrcStruct],catchCol.toInt)
-          OrcStructAccess.setFieldValue(composedValue,col.toInt,field)
-        }
-        var i = 0
-        if(cacheInfo.normalColOrders.nonEmpty) {
-          for (normalColOrder <- normalColOrders) {
-            while (OrcStructAccess.getFieldValue(value.asInstanceOf[OrcStruct], i) == null) {
-              i += 1
-            }
-            val field = OrcStructAccess.getFieldValue(value.asInstanceOf[OrcStruct], i)
-            i += 1
-            OrcStructAccess.setFieldValue(composedValue, normalColOrder.toInt, field)
+        // We get our input bytes from thread-local Hadoop FileSystem statistics.
+        // If we do a coalesce, however, we are likely to compute multiple partitions in the same
+        // task and in the same thread, in which case we need to avoid override values written by
+        // previous partitions (SPARK-13071).
+        private def updateBytesRead(): Unit = {
+          getBytesReadCallback.foreach { getBytesRead =>
+            inputMetrics.setBytesRead(existingBytesRead + getBytesRead())
           }
         }
-        (key, composedValue.asInstanceOf[V])
-      }
 
-      override def close(): Unit = {
-        if (reader != null) {
-          InputFileBlockHolder.unset()
-          try {
-            if (cacheReader != null) cacheReader.close()
-            reader.close()
-            println(s"**************split:*********${split.index}****${split.inputSplit.value.getLength}")
+
+        private var reader: RecordReader[K, V] = null
+        private var cacheReader: RecordReader[K, V] = null
+        private val inputFormat = getInputFormat(jobConf)
+        HadoopRDD.addLocalConfiguration(
+          new SimpleDateFormat("yyyyMMddHHmmss", Locale.US).format(createTime),
+          context.stageId, theSplit.index, context.attemptNumber, jobConf)
+
+        if (cacheInfo != null) {
+          cacheReader = try {
+            inputFormat.getRecordReader(cacheSplit.inputSplit.value, cacheJobConf, Reporter.NULL)
           } catch {
-            case e: Exception =>
-              if (!ShutdownHookManager.inShutdown()) {
-                logWarning("Exception in RecordReader.close()", e)
-              }
-          } finally {
-            reader = null
+            case e: IOException if ignoreCorruptFiles =>
+              logWarning(s"Skipped the rest content in the corrupted file: ${split.inputSplit}", e)
+              finished = true
+              null
           }
-          if (getBytesReadCallback.isDefined) {
+        }
+
+
+        reader =
+          try {
+            inputFormat.getRecordReader(split.inputSplit.value, jobConf, Reporter.NULL)
+          } catch {
+            case e: IOException if ignoreCorruptFiles =>
+              logWarning(s"Skipped the rest content in the corrupted file: ${split.inputSplit}", e)
+              finished = true
+              null
+          }
+        // Register an on-task-completion callback to close the input stream.
+        context.addTaskCompletionListener { context =>
+          // Update the bytes read before closing is to make sure lingering bytesRead statistics in
+          // this thread get correctly added.
+          updateBytesRead()
+          closeIfNeeded()
+        }
+
+        private val key: K = if (reader == null) null.asInstanceOf[K] else reader.createKey()
+        private val value: V = if (reader == null) null.asInstanceOf[V] else reader.createValue()
+
+
+        private val cachekey: K = if (cacheReader == null) null.asInstanceOf[K] else cacheReader.createKey()
+        private val cachevalue: V = if (cacheReader == null) null.asInstanceOf[V] else cacheReader.createValue()
+
+
+        val child = cacheInfo.allCols.length
+        var composedValue = OrcStructAccess.getOrcStruct(child)
+
+        override def getNext(): (K, V) = {
+          try {
+            if (cacheReader != null) cacheReader.next(cachekey, cachevalue)
+            finished = !reader.next(key, value)
+          } catch {
+            case e: IOException if ignoreCorruptFiles =>
+              logWarning(s"Skipped the rest content in the corrupted file: ${split.inputSplit}", e)
+              finished = true
+          }
+          if (!finished) {
+            inputMetrics.incRecordsRead(1)
+          }
+          if (inputMetrics.recordsRead % SparkHadoopUtil.UPDATE_INPUT_METRICS_INTERVAL_RECORDS == 0) {
             updateBytesRead()
-          } else if (split.inputSplit.value.isInstanceOf[FileSplit] ||
-            split.inputSplit.value.isInstanceOf[CombineFileSplit]) {
-            // If we can't get the bytes read from the FS stats, fall back to the split size,
-            // which may be inaccurate.
+          }
+          val oldNewColMap = cacheInfo.originalCacheJsonPathRelationMap
+          val normalColOrders = cacheInfo.normalColOrders.split(",")
+          //        val cacheFields = fieldsRef.get(cachevalue).asInstanceOf[Array[Object]]
+          //        val fields = fieldsRef.get(value).asInstanceOf[Array[Object]]
+
+
+          for ((catchCol, col) <- oldNewColMap) {
+            val field = OrcStructAccess.getFieldValue(cachevalue.asInstanceOf[OrcStruct], catchCol.toInt)
+            OrcStructAccess.setFieldValue(composedValue, col.toInt, field)
+          }
+          var i = 0
+          if (cacheInfo.normalColOrders.nonEmpty) {
+            for (normalColOrder <- normalColOrders) {
+              while (OrcStructAccess.getFieldValue(value.asInstanceOf[OrcStruct], i) == null) {
+                i += 1
+              }
+              val field = OrcStructAccess.getFieldValue(value.asInstanceOf[OrcStruct], i)
+              i += 1
+              OrcStructAccess.setFieldValue(composedValue, normalColOrder.toInt, field)
+            }
+          }
+          (key, composedValue.asInstanceOf[V])
+        }
+
+        override def close(): Unit = {
+          if (reader != null) {
+            InputFileBlockHolder.unset()
             try {
-              inputMetrics.incBytesRead(split.inputSplit.value.getLength)
+              if (cacheReader != null) cacheReader.close()
+              reader.close()
+              println(s"**************split:*********${split.index}****${split.inputSplit.value.getLength}")
             } catch {
-              case e: java.io.IOException =>
-                logWarning("Unable to get input size to set InputMetrics for task", e)
+              case e: Exception =>
+                if (!ShutdownHookManager.inShutdown()) {
+                  logWarning("Exception in RecordReader.close()", e)
+                }
+            } finally {
+              reader = null
+            }
+            if (getBytesReadCallback.isDefined) {
+              updateBytesRead()
+            } else if (split.inputSplit.value.isInstanceOf[FileSplit] ||
+              split.inputSplit.value.isInstanceOf[CombineFileSplit]) {
+              // If we can't get the bytes read from the FS stats, fall back to the split size,
+              // which may be inaccurate.
+              try {
+                inputMetrics.incBytesRead(split.inputSplit.value.getLength)
+              } catch {
+                case e: java.io.IOException =>
+                  logWarning("Unable to get input size to set InputMetrics for task", e)
+              }
             }
           }
         }
       }
     }
-  }
-//    if(sc.conf.getBoolean("spark.sql.json.writeCache",false)){
-//      val splitIndex = theSplit.asInstanceOf[HadoopPartition].inputSplit.value.getLocations
-//    split.getPipeEnvVars().get("mapreduce_map_input_file").get
-//      sc.conf.set("")
-//    }
+    //    if(sc.conf.getBoolean("spark.sql.json.writeCache",false)){
+    //      val splitIndex = theSplit.asInstanceOf[HadoopPartition].inputSplit.value.getLocations
+    //    split.getPipeEnvVars().get("mapreduce_map_input_file").get
+    //      sc.conf.set("")
+    //    }
     new InterruptibleIterator[(K, V)](context, iter)
   }
 
   /** Maps over a partition, providing the InputSplit that was used as the base of the partition. */
   @DeveloperApi
   def mapPartitionsWithInputSplit[U: ClassTag](
-      f: (InputSplit, Iterator[(K, V)]) => Iterator[U],
-      preservesPartitioning: Boolean = false): RDD[U] = {
+                                                f: (InputSplit, Iterator[(K, V)]) => Iterator[U],
+                                                preservesPartitioning: Boolean = false): RDD[U] = {
     new HadoopMapPartitionsWithSplitRDD(this, f, preservesPartitioning)
   }
 
@@ -572,18 +581,18 @@ class HadoopRDD[K, V](
 
 private[spark] object HadoopRDD extends Logging {
   /**
-   * Configuration's constructor is not threadsafe (see SPARK-1097 and HADOOP-10456).
-   * Therefore, we synchronize on this lock before calling new JobConf() or new Configuration().
-   */
+    * Configuration's constructor is not threadsafe (see SPARK-1097 and HADOOP-10456).
+    * Therefore, we synchronize on this lock before calling new JobConf() or new Configuration().
+    */
   val CONFIGURATION_INSTANTIATION_LOCK = new Object()
 
   /** Update the input bytes read metric each time this number of records has been read */
   val RECORDS_BETWEEN_BYTES_READ_METRIC_UPDATES = 256
 
   /**
-   * The three methods below are helpers for accessing the local map, a property of the SparkEnv of
-   * the local process.
-   */
+    * The three methods below are helpers for accessing the local map, a property of the SparkEnv of
+    * the local process.
+    */
   def getCachedMetadata(key: String): Any = SparkEnv.get.hadoopJobMetadata.get(key)
 
   private def putCachedMetadata(key: String, value: Any): Unit =
@@ -603,13 +612,13 @@ private[spark] object HadoopRDD extends Logging {
   }
 
   /**
-   * Analogous to [[org.apache.spark.rdd.MapPartitionsRDD]], but passes in an InputSplit to
-   * the given function rather than the index of the partition.
-   */
+    * Analogous to [[org.apache.spark.rdd.MapPartitionsRDD]], but passes in an InputSplit to
+    * the given function rather than the index of the partition.
+    */
   private[spark] class HadoopMapPartitionsWithSplitRDD[U: ClassTag, T: ClassTag](
-      prev: RDD[T],
-      f: (InputSplit, Iterator[T]) => Iterator[U],
-      preservesPartitioning: Boolean = false)
+                                                                                  prev: RDD[T],
+                                                                                  f: (InputSplit, Iterator[T]) => Iterator[U],
+                                                                                  preservesPartitioning: Boolean = false)
     extends RDD[U](prev) {
 
     override val partitioner = if (preservesPartitioning) firstParent[T].partitioner else None
@@ -624,7 +633,7 @@ private[spark] object HadoopRDD extends Logging {
   }
 
   private[spark] def convertSplitLocationInfo(
-       infos: Array[SplitLocationInfo]): Option[Seq[String]] = {
+                                               infos: Array[SplitLocationInfo]): Option[Seq[String]] = {
     Option(infos).map(_.flatMap { loc =>
       val locationStr = loc.getLocation
       if (locationStr != "localhost") {

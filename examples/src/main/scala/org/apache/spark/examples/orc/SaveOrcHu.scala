@@ -9,7 +9,7 @@ object SaveORCHu {
       .builder()
       .master("local")
       .config("spark.sql.catalogImplementation", "hive")
-      .config("spark.sql.json.optimize", true)
+      .config("spark.sql.json.optimize",false)
       .config("spark.network.timeout", 3600)
       .config("spark.sql.codegen.wholeStage", false)
       .enableHiveSupport()
@@ -41,19 +41,31 @@ object SaveORCHu {
     ////    log.show(10)
     /** ********************模拟读缓存，当语句中有path的时候，开启两个reader ************************/
 
-    val tableName = "hugePath"
-//    spark.sql(s"select * from default_$tableName").show()
-//    spark.sql(s"select * from $tableName").show()
-    val start = System.currentTimeMillis()
+    val tableName = "giantPath"
+    val num = 1
+    val optimize = spark.sparkContext.getConf.getBoolean("spark.sql.json.optimize",false)
+    val time: Array[Long] = new Array[Long](num)
+    //    spark.sql(s"select * from default_$tableName").show()
+    //    spark.sql(s"select * from $tableName").show()
     val count = spark.sparkContext.longAccumulator("count")
-    spark.sql(
-      s"""select frequency, get_json_object(path,'$$.id')as path_id,
-         |get_json_object(path,'$$.body') as path_body,
-         |time
-         | from $tableName""".stripMargin).show(10)
-
-    val end = System.currentTimeMillis()
-    println(s"cost time ${(end - start) / 1000}, count = ${count.value}")
+    for (i <- 0 until num) {
+      val start = System.currentTimeMillis()
+      spark.sql(
+        s"""select frequency, get_json_object(path,'$$.id')as path_id,
+           |get_json_object(path,'$$.html_url') as path_body,
+           |time
+           | from $tableName""".stripMargin)
+//        .show(10)
+        .foreachPartition(iter => count.add(iter.size))
+      val end = System.currentTimeMillis()
+      time(i) = (end - start) / 1000
+    }
+    val optimizeStr = if (optimize) {
+      "optimize"
+    } else {
+      "unoptimize"
+    }
+    println(s"""$optimizeStr $num times: ${time.mkString(",")}  avg: ${time.sum / num} count: ${count.value}""")
   }
 }
 

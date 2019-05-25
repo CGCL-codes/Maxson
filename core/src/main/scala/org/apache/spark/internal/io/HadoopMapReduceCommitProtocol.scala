@@ -148,7 +148,10 @@ class HadoopMapReduceCommitProtocol(
     if(SparkEnv.get.conf.getBoolean("spark.sql.json.writeCache",false)){
       val path = InputFileBlockHolder.getInputFilePath.toString
       val pattern =  new Regex("""(?s)part-(\d+)-""")
-      split = pattern.findFirstMatchIn(path).get.group(1).toInt
+      val firstMatch = pattern.findFirstMatchIn(path)
+      if(firstMatch.isDefined) {
+        split = pattern.findFirstMatchIn(path).get.group(1).toInt
+      }
     }
     f"part-$split%05d-$jobId$ext"
   }
