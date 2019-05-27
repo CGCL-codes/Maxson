@@ -149,8 +149,8 @@ class HadoopMapReduceCommitProtocol(
       val path = InputFileBlockHolder.getInputFilePath.toString
       val pattern =  new Regex("""(?s)part-(\d+)-""")
       val firstMatch = pattern.findFirstMatchIn(path)
-      if(firstMatch.isDefined) {
-        split = pattern.findFirstMatchIn(path).get.group(1).toInt
+      if(firstMatch.isDefined){
+        split = firstMatch.get.group(1).toInt
       }
     }
     f"part-$split%05d-$jobId$ext"

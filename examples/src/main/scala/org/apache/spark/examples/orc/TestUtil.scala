@@ -58,6 +58,12 @@ object TestUtil {
 
   /***************************************************读普通列和json列的所耗时间*************************************************/
   def readCol(sparkSession: SparkSession,tableName:String,times:Int):Double={
+    val st = new Date().getTime
+    val log = sparkSession.sql(s"select time,get_json_object(path,'$$.id') as path_id,get_json_object(path,'$$.url') as path_url,frequency from $tableName")
+    log.foreachPartition(iter => println(iter.size))
+    val et = new Date().getTime
+    println(s"!!!!!!!!!!!!!!!!!!!!!!!!!!!!${(et-st)/(1000.0)}")
+    var time:Double = 0.0
     val startTime = new Date().getTime
     for(i <-0 until times){
       val log = sparkSession.sql(s"select time,get_json_object(path,'$$.id') as path_id,get_json_object(path,'$$.url') as path_url,frequency from $tableName")
@@ -65,7 +71,9 @@ object TestUtil {
 //      log.show(10)
     }
     val endTime = new Date().getTime
-    (endTime-startTime)/(times.toDouble*1000)
+    time = (endTime-startTime)/(times.toDouble*1000)
+    println(time)
+    time
   }
 
 }
