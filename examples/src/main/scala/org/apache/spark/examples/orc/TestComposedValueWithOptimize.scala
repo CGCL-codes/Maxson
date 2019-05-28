@@ -20,9 +20,9 @@ object TestComposedValueWithOptimize {
     if(commandLine.hasOption("h")) {
       CommonCLIHelper.printHelpAndExit(formatter, options, helper, 0)
     }
-    val flag:Boolean =(commandLine.getOptionValue("o") == null
-      || commandLine.getOptionValue("t") == null
-      || commandLine.getOptionValue("n") == null)
+    val flag:Boolean =(commandLine.getOptionValue("o") != null
+      && commandLine.getOptionValue("t") != null
+      && commandLine.getOptionValue("n") != null)
     if(flag){
       println("flag is true !!!!!!")
       val optimizeUsed = commandLine.getOptionValue("o")
