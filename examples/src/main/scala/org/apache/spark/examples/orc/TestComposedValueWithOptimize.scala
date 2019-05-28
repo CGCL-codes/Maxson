@@ -17,12 +17,14 @@ object TestComposedValueWithOptimize {
     val (commandLine,options) = CommonCLIHelper.parseCommandLine(args)
     val formatter = new HelpFormatter()
 
-    if(commandLine.hasOption("h")){}
-    CommonCLIHelper.printHelpAndExit(formatter,options,helper,0)
+    if(commandLine.hasOption("h")) {
+      CommonCLIHelper.printHelpAndExit(formatter, options, helper, 0)
+    }
     val flag:Boolean =(commandLine.getOptionValue("o") == null
       || commandLine.getOptionValue("t") == null
       || commandLine.getOptionValue("n") == null)
     if(flag){
+      println("flag is true !!!!!!")
       val optimizeUsed = commandLine.getOptionValue("o")
       val tableName = commandLine.getOptionValue("t")
       val cycleTimes = commandLine.getOptionValue("n")
@@ -36,6 +38,7 @@ object TestComposedValueWithOptimize {
 
       TestUtil.readCol(spark,tableName,cycleTimes.toInt)
     }else{
+      println("flag is false !!!")
       CommonCLIHelper.printHelpAndExit(formatter,options,helper,1)
     }
   }
