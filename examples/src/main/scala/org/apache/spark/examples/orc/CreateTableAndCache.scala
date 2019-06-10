@@ -18,17 +18,18 @@ object CreateTableAndCache {
       CreateTableCLI.printHelpAndExit(formatter, options, helper, 0)
     }
 
-    val spark = SparkSession
-      .builder()
-      .master("local")
-      .config("spark.sql.catalogImplementation", "hive")
-      .config("spark.sql.json.writeCache", true)
-      .enableHiveSupport()
-      .getOrCreate()
+
 
 
     val flag = (commandLine.getOptionValue("t") != null && commandLine.getOptionValue("s") != null && commandLine.getOptionValue("ct") != null)
     if (flag) {
+
+      val spark = SparkSession
+        .builder()
+        .config("spark.sql.catalogImplementation", "hive")
+        .config("spark.sql.json.writeCache", true)
+        .enableHiveSupport()
+        .getOrCreate()
       println("flag is true !!!!!!")
       val tableName = commandLine.getOptionValue("t")
       val path = commandLine.getOptionValue("s")
