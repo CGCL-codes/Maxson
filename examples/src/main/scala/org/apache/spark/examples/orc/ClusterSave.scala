@@ -12,7 +12,6 @@ object ClusterSave {
   def main(args: Array[String]): Unit = {
     val spark = SparkSession
       .builder()
-      .master("local")
       .config("spark.sql.catalogImplementation", "hive")
       //      .config("spark.sql.json.optimize",true)
       //      .config("spark.network.timeout", 3600)
