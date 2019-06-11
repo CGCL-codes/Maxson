@@ -59,8 +59,8 @@ object ClusterTest {
           "get_json_object(info,'$.name') as info_name," +
           "get_json_object(info,'$.age')as info_age," +
           "get_json_object(info,'$.gender') as info_gender," +
-          "get_json_object(info,'$.uniqueId') as info_uniqueId" +
-          "from json_test")
+          "get_json_object(info,'$.uniqueId') as info_uniqueId " +
+          " from json_test")
         jsonTable.write.format("hive").mode("overwrite").option("fileFormat", "orc").saveAsTable(tableName)
 
       case _ =>
