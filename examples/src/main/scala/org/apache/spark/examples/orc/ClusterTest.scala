@@ -45,7 +45,7 @@ object ClusterTest {
           val base = iter.next()
           val buffer = new ListBuffer[JsonTest]
           for (i <- 0 until recordEachPartition) {
-            buffer += JsonTest(i, base + s"""uniqueId":"${UUID.randomUUID()}}""")
+            buffer += JsonTest(i, base + s"""uniqueId":"${UUID.randomUUID()}"}""")
           }
           buffer.iterator
         }).toDF()
