@@ -9,7 +9,7 @@ object SaveORCHu {
       .builder()
       .master("local")
       .config("spark.sql.catalogImplementation", "hive")
-      .config("spark.sql.json.optimize",false)
+      .config("spark.sql.json.optimize",true)
       .config("spark.network.timeout", 3600)
       .config("spark.sql.codegen.wholeStage", false)
       .enableHiveSupport()
@@ -41,8 +41,8 @@ object SaveORCHu {
     ////    log.show(10)
     /** ********************模拟读缓存，当语句中有path的时候，开启两个reader ************************/
 
-    val tableName = "giantPath"
-    val num = 1
+    val tableName = "hugePath"
+    val num = 5
     val optimize = spark.sparkContext.getConf.getBoolean("spark.sql.json.optimize",false)
     val time: Array[Long] = new Array[Long](num)
     //    spark.sql(s"select * from default_$tableName").show()
