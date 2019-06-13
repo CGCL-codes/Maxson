@@ -328,7 +328,7 @@ private[hive] trait HiveStrategies {
       expr match {
         case GetJsonObject(r: AttributeReference, Literal(v, StringType)) =>
           val jsonParameter = stringConverter(v).asInstanceOf[String]
-          val path = jsonParameter.substring(jsonParameter.indexOf(".") + 1, jsonParameter.length).replaceAll("\\.", "_")
+          val path = jsonParameter.substring(jsonParameter.indexOf(".") + 1, jsonParameter.length).replaceAll("\\.", "_").replace("[","").replace("]","")
           if (ReadJson.jsonPathExists(sparkSession, relation.tableMeta.database + "_" + relation.tableMeta.identifier.table, r.name + "_" + path)) {
             Some(mkAttribute("get_json_object", r, path, attrMap))
           } else {

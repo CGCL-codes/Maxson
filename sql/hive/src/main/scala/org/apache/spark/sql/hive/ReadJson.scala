@@ -1,13 +1,10 @@
 package org.apache.spark.sql.hive
 
-import org.apache.hadoop.conf.Configuration
+
 import org.apache.hadoop.hive.ql.metadata.Table
 import org.apache.hadoop.hive.ql.plan.TableDesc
 import org.apache.hadoop.hive.serde.serdeConstants
-import org.apache.hadoop.hive.serde2.ColumnProjectionUtils
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils.ObjectInspectorCopyOption
-import org.apache.hadoop.hive.serde2.objectinspector.{ObjectInspectorUtils, StructObjectInspector}
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils
+
 import org.apache.hadoop.mapred.JobConf
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat
 import org.apache.orc.OrcConf
@@ -116,6 +113,28 @@ def this(tableName: String,
     newJobConf.set(FileInputFormat.INPUT_DIR,dir)
     newJobConf.set(OrcConf.INCLUDE_COLUMNS.getAttribute,jsonPath)
     newJobConf.set(OrcConf.INCLUDE_COLUMNS.getHiveConfName,indexOfJsonPath)
+    newJobConf.set(serdeConstants.LIST_COLUMN_TYPES,"")
+
+
+//    val deserializer = tableDesc.getDeserializerClass.newInstance
+//    deserializer.initialize(newJobConf, tableDesc.getProperties)
+//
+//    val structOI = ObjectInspectorUtils
+//      .getStandardObjectInspector(
+//        deserializer.getObjectInspector,
+//        ObjectInspectorCopyOption.JAVA)
+//      .asInstanceOf[StructObjectInspector]
+//
+//    val columnTypeNames = structOI
+//      .getAllStructFieldRefs.asScala
+//      .map(_.getFieldObjectInspector)
+//      .map(TypeInfoUtils.getTypeInfoFromObjectInspector(_).getTypeName)
+//      .mkString(",")
+//
+    newJobConf.set(serdeConstants.LIST_COLUMN_TYPES, hiveQlTable.getMetadata.getProperty("columns.types").replace(":",","))
+    newJobConf.set(serdeConstants.LIST_COLUMNS, hiveQlTable.getMetadata.getProperty("columns"))
+
+
 //    newJobConf.set(ColumnProjectionUtils.READ_COLUMN_NAMES_CONF_STR,"path")
     return newJobConf
   }
@@ -126,7 +145,7 @@ def this(tableName: String,
     hiveQlTable.getMetadata)
 
   protected def getCloneJobConf():JobConf = {
-    val conf: Configuration = broadCastedConf.value.value
+    val conf = broadCastedConf.value.value
     val initializeJobConfFunc = HadoopTableReader.initializeLocalJobConfFunc(dir, tableDesc) _
     val initLocalJobConfFuncOpt = Some(initializeJobConfFunc)
     HadoopRDD.CONFIGURATION_INSTANTIATION_LOCK.synchronized {
