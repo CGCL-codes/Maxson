@@ -17,10 +17,6 @@ object CreateTableAndCache {
     if (commandLine.hasOption("h")) {
       CreateTableCLI.printHelpAndExit(formatter, options, helper, 0)
     }
-
-
-
-
     val flag = (commandLine.getOptionValue("t") != null && commandLine.getOptionValue("s") != null && commandLine.getOptionValue("ct") != null)
     if (flag) {
 

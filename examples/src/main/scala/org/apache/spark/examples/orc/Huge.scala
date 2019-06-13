@@ -14,7 +14,7 @@ object Huge {
       .builder()
       .master("local")
       .config("spark.sql.catalogImplementation","hive")
-//      .config("spark.sql.json.optimize",true)
+      .config("spark.sql.json.optimize",true)
 //      .config("spark.sql.json.writeCache",true)
 //      .config("spark.sql.codegen.wholeStage", false)
       .enableHiveSupport()

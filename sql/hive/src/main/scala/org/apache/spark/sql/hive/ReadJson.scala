@@ -116,6 +116,28 @@ def this(tableName: String,
     newJobConf.set(FileInputFormat.INPUT_DIR,dir)
     newJobConf.set(OrcConf.INCLUDE_COLUMNS.getAttribute,jsonPath)
     newJobConf.set(OrcConf.INCLUDE_COLUMNS.getHiveConfName,indexOfJsonPath)
+    newJobConf.set(serdeConstants.LIST_COLUMN_TYPES,"")
+
+
+//    val deserializer = tableDesc.getDeserializerClass.newInstance
+//    deserializer.initialize(newJobConf, tableDesc.getProperties)
+//
+//    val structOI = ObjectInspectorUtils
+//      .getStandardObjectInspector(
+//        deserializer.getObjectInspector,
+//        ObjectInspectorCopyOption.JAVA)
+//      .asInstanceOf[StructObjectInspector]
+//
+//    val columnTypeNames = structOI
+//      .getAllStructFieldRefs.asScala
+//      .map(_.getFieldObjectInspector)
+//      .map(TypeInfoUtils.getTypeInfoFromObjectInspector(_).getTypeName)
+//      .mkString(",")
+//
+    newJobConf.set(serdeConstants.LIST_COLUMN_TYPES, hiveQlTable.getMetadata.getProperty("columns.types").replace(":",","))
+    newJobConf.set(serdeConstants.LIST_COLUMNS, hiveQlTable.getMetadata.getProperty("columns"))
+
+
 //    newJobConf.set(ColumnProjectionUtils.READ_COLUMN_NAMES_CONF_STR,"path")
     return newJobConf
   }
