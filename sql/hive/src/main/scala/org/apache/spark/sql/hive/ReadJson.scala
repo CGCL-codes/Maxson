@@ -1,13 +1,10 @@
 package org.apache.spark.sql.hive
 
-import org.apache.hadoop.conf.Configuration
+
 import org.apache.hadoop.hive.ql.metadata.Table
 import org.apache.hadoop.hive.ql.plan.TableDesc
 import org.apache.hadoop.hive.serde.serdeConstants
-import org.apache.hadoop.hive.serde2.ColumnProjectionUtils
-import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils.ObjectInspectorCopyOption
-import org.apache.hadoop.hive.serde2.objectinspector.{ObjectInspectorUtils, StructObjectInspector}
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils
+
 import org.apache.hadoop.mapred.JobConf
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat
 import org.apache.orc.OrcConf
@@ -148,7 +145,7 @@ def this(tableName: String,
     hiveQlTable.getMetadata)
 
   protected def getCloneJobConf():JobConf = {
-    val conf: Configuration = broadCastedConf.value.value
+    val conf = broadCastedConf.value.value
     val initializeJobConfFunc = HadoopTableReader.initializeLocalJobConfFunc(dir, tableDesc) _
     val initLocalJobConfFuncOpt = Some(initializeJobConfFunc)
     HadoopRDD.CONFIGURATION_INSTANTIATION_LOCK.synchronized {
