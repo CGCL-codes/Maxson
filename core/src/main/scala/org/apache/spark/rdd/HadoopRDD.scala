@@ -19,21 +19,17 @@ package org.apache.spark.rdd
 
 import java.io.IOException
 import java.text.SimpleDateFormat
-import java.util
+
 import java.util.{Date, Locale}
 
 import scala.collection.immutable.Map
 import scala.reflect.ClassTag
 import org.apache.hadoop.conf.{Configurable, Configuration}
-import org.apache.hadoop.hive.ql.io.orc.OrcInputFormat.NullKeyRecordReader
 import org.apache.hadoop.hive.ql.io.orc.{OrcStructAccess, OrcStruct}
-import org.apache.hadoop.hive.serde2.ColumnProjectionUtils
 import org.apache.hadoop.mapred._
 import org.apache.hadoop.mapred.lib.CombineFileSplit
 import org.apache.hadoop.mapreduce.TaskType
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat
 import org.apache.hadoop.util.ReflectionUtils
-import org.apache.orc.OrcConf
 import org.apache.spark._
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.broadcast.Broadcast
@@ -45,7 +41,7 @@ import org.apache.spark.scheduler.{HDFSCacheTaskLocation, HostTaskLocation}
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.util.{NextIterator, SerializableConfiguration, SerializableJobConf, ShutdownHookManager}
 
-import scala.collection.mutable
+
 
 /**
  * A Spark split class that wraps around a Hadoop InputSplit.
@@ -385,7 +381,7 @@ class HadoopRDD[K, V](
       if (cacheInfo != null) cacheSplit = cacheSplits.value(split.index).asInstanceOf[HadoopPartition]
       logInfo("Input split: " + split.inputSplit)
       private val jobConf = getJobConf()
-      private val cacheJobConf = broadCastedCacheConf.value.value.asInstanceOf[JobConf]
+      private val cacheJobConf = new JobConf(broadCastedCacheConf.value.value)
 
       private val inputMetrics = context.taskMetrics().inputMetrics
       private val existingBytesRead = inputMetrics.bytesRead
