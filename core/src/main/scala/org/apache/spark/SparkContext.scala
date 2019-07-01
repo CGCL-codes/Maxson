@@ -1949,6 +1949,7 @@ class SparkContext(config: SparkConf) extends Logging {
     localProperties.remove()
     // Unset YARN mode system env variable, to allow switching between cluster types.
     SparkContext.clearActiveContext()
+    logInfo(s"JsonCost is ${SparkEnv.jsonCost} ms")
     logInfo("Successfully stopped SparkContext")
   }
 
@@ -2438,6 +2439,7 @@ object SparkContext extends Logging {
    * prevents us from reliably distinguishing between cases where another context is being
    * constructed and cases where another constructor threw an exception.
    */
+
   private def assertNoOtherContextIsRunning(
       sc: SparkContext,
       allowMultipleContexts: Boolean): Unit = {

@@ -20,9 +20,8 @@ package org.apache.spark.sql.catalyst.expressions
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, CharArrayWriter, InputStreamReader, StringWriter}
 
 import scala.util.parsing.combinator.RegexParsers
-
 import com.fasterxml.jackson.core._
-
+import org.apache.spark.SparkEnv
 import org.apache.spark.sql.AnalysisException
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.analysis.TypeCheckResult
@@ -136,6 +135,7 @@ case class GetJsonObject(json: Expression, path: Expression)
   @transient private lazy val parsedPath = parsePath(path.eval().asInstanceOf[UTF8String])
 
   override def eval(input: InternalRow): Any = {
+    val start  = System.currentTimeMillis()
     val jsonStr = json.eval(input).asInstanceOf[UTF8String]
     if (jsonStr == null) {
       return null
@@ -170,6 +170,8 @@ case class GetJsonObject(json: Expression, path: Expression)
     } else {
       null
     }
+    val end = System.currentTimeMillis()
+    SparkEnv.jsonCost  = SparkEnv.jsonCost +  end -start
   }
 
   private def parsePath(path: UTF8String): Option[List[PathInstruction]] = {
