@@ -159,19 +159,27 @@ case class GetJsonObject(json: Expression, path: Expression)
             evaluatePath(parser, generator, RawStyle, parsed.get)
           }
           if (matched) {
+            val end = System.currentTimeMillis()
+            SparkEnv.jsonCost  = SparkEnv.jsonCost +  end -start
             UTF8String.fromBytes(output.toByteArray)
           } else {
+            val end = System.currentTimeMillis()
+            SparkEnv.jsonCost  = SparkEnv.jsonCost +  end -start
             null
           }
         }
       } catch {
-        case _: JsonProcessingException => null
+        case _: JsonProcessingException =>
+          val end = System.currentTimeMillis()
+          SparkEnv.jsonCost  = SparkEnv.jsonCost +  end -start
+          null
       }
     } else {
+      val end = System.currentTimeMillis()
+      SparkEnv.jsonCost  = SparkEnv.jsonCost +  end -start
       null
     }
-    val end = System.currentTimeMillis()
-    SparkEnv.jsonCost  = SparkEnv.jsonCost +  end -start
+
   }
 
   private def parsePath(path: UTF8String): Option[List[PathInstruction]] = {
