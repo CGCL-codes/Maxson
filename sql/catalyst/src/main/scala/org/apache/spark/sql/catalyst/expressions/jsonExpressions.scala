@@ -164,7 +164,10 @@ case class GetJsonObject(json: Expression, path: Expression)
           }
           if (matched) {
             val result = UTF8String.fromBytes(output.toByteArray)
-
+            if(cost) {
+              end = System.currentTimeMillis()
+              SparkEnv.jsonCost = SparkEnv.jsonCost + end - start
+            }
             result
           } else {
             if(cost) {
