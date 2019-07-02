@@ -131,11 +131,15 @@ case class GetJsonObject(json: Expression, path: Expression)
   override def dataType: DataType = StringType
   override def nullable: Boolean = true
   override def prettyName: String = "get_json_object"
-
+  val cost = SparkEnv.get.conf.getBoolean("spark.json.optimize.cost", false)
   @transient private lazy val parsedPath = parsePath(path.eval().asInstanceOf[UTF8String])
 
   override def eval(input: InternalRow): Any = {
-    val start  = System.currentTimeMillis()
+    var start = 0L
+    var end = 0L
+    if(cost) {
+      start = System.currentTimeMillis()
+    }
     val jsonStr = json.eval(input).asInstanceOf[UTF8String]
     if (jsonStr == null) {
       return null
@@ -159,24 +163,30 @@ case class GetJsonObject(json: Expression, path: Expression)
             evaluatePath(parser, generator, RawStyle, parsed.get)
           }
           if (matched) {
-            val end = System.currentTimeMillis()
-            SparkEnv.jsonCost  = SparkEnv.jsonCost +  end -start
-            UTF8String.fromBytes(output.toByteArray)
+            val result = UTF8String.fromBytes(output.toByteArray)
+
+            result
           } else {
-            val end = System.currentTimeMillis()
-            SparkEnv.jsonCost  = SparkEnv.jsonCost +  end -start
+            if(cost) {
+              end = System.currentTimeMillis()
+              SparkEnv.jsonCost = SparkEnv.jsonCost + end - start
+            }
             null
           }
         }
       } catch {
         case _: JsonProcessingException =>
-          val end = System.currentTimeMillis()
-          SparkEnv.jsonCost  = SparkEnv.jsonCost +  end -start
+          if(cost) {
+            end = System.currentTimeMillis()
+            SparkEnv.jsonCost = SparkEnv.jsonCost + end - start
+          }
           null
       }
     } else {
-      val end = System.currentTimeMillis()
-      SparkEnv.jsonCost  = SparkEnv.jsonCost +  end -start
+      if(cost) {
+        end = System.currentTimeMillis()
+        SparkEnv.jsonCost = SparkEnv.jsonCost + end - start
+      }
       null
     }
 
