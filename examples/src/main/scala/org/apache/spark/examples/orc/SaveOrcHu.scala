@@ -2,14 +2,14 @@ package org.apache.spark.examples.orc
 
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
-object SaveORCHu {
+object SaveOrcHu {
 
   def main(args: Array[String]): Unit = {
     val spark = SparkSession
       .builder()
       .master("local")
       .config("spark.sql.catalogImplementation", "hive")
-      .config("spark.sql.json.optimize",true)
+      .config("spark.sql.json.optimize",false)
       .config("spark.network.timeout", 3600)
       .config("spark.sql.codegen.wholeStage", false)
       .enableHiveSupport()
@@ -41,8 +41,8 @@ object SaveORCHu {
     ////    log.show(10)
     /** ********************模拟读缓存，当语句中有path的时候，开启两个reader ************************/
 
-    val tableName = "hugePath"
-    val num = 5
+    val tableName = "largePath"
+    val num = 1
     val optimize = spark.sparkContext.getConf.getBoolean("spark.sql.json.optimize",false)
     val time: Array[Long] = new Array[Long](num)
     //    spark.sql(s"select * from default_$tableName").show()
@@ -55,7 +55,7 @@ object SaveORCHu {
            |get_json_object(path,'$$.html_url') as path_body,
            |time
            | from $tableName""".stripMargin)
-//        .show(10)
+        //        .show(10)
         .foreachPartition(iter => count.add(iter.size))
       val end = System.currentTimeMillis()
       time(i) = (end - start) / 1000

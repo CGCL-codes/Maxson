@@ -20,7 +20,7 @@ package org.apache.spark.storage
 import java.io.{File, IOException}
 import java.util.UUID
 
-import org.apache.spark.SparkConf
+import org.apache.spark.{SparkConf, SparkEnv}
 import org.apache.spark.executor.ExecutorExitCode
 import org.apache.spark.internal.Logging
 import org.apache.spark.util.{ShutdownHookManager, Utils}
@@ -48,6 +48,8 @@ private[spark] class DiskBlockManager(conf: SparkConf, deleteFilesOnStop: Boolea
   // of subDirs(i) is protected by the lock of subDirs(i)
   private val subDirs = Array.fill(localDirs.length)(new Array[File](subDirsPerLocalDir))
 
+  private val startTime = System.currentTimeMillis()
+  private var endTime = 0L
   private val shutdownHook = addShutdownHook()
 
   /** Looks up a file by hashing it into one of our local subdirectories. */
@@ -170,6 +172,9 @@ private[spark] class DiskBlockManager(conf: SparkConf, deleteFilesOnStop: Boolea
   }
 
   private def doStop(): Unit = {
+    endTime = System.currentTimeMillis()
+    logInfo(s"******************json cost is  ${SparkEnv.jsonCost/1000}s DiskBlockManager alive: ${(endTime-startTime)/1000}s" +
+      s" **************************")
     if (deleteFilesOnStop) {
       localDirs.foreach { localDir =>
         if (localDir.isDirectory() && localDir.exists()) {

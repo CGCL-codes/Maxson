@@ -140,7 +140,7 @@ object SparkEnv extends Logging {
 
   private[spark] val driverSystemName = "sparkDriver"
   private[spark] val executorSystemName = "sparkExecutor"
-
+  var jsonCost = 0L
   def set(e: SparkEnv) {
     env = e
   }

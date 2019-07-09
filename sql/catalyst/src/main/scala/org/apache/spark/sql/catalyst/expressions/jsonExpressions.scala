@@ -20,9 +20,8 @@ package org.apache.spark.sql.catalyst.expressions
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, CharArrayWriter, InputStreamReader, StringWriter}
 
 import scala.util.parsing.combinator.RegexParsers
-
 import com.fasterxml.jackson.core._
-
+import org.apache.spark.SparkEnv
 import org.apache.spark.sql.AnalysisException
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.analysis.TypeCheckResult
@@ -132,10 +131,15 @@ case class GetJsonObject(json: Expression, path: Expression)
   override def dataType: DataType = StringType
   override def nullable: Boolean = true
   override def prettyName: String = "get_json_object"
-
+  val cost = SparkEnv.get.conf.getBoolean("spark.json.optimize.cost", false)
   @transient private lazy val parsedPath = parsePath(path.eval().asInstanceOf[UTF8String])
 
   override def eval(input: InternalRow): Any = {
+    var start = 0L
+    var end = 0L
+    if(cost) {
+      start = System.currentTimeMillis()
+    }
     val jsonStr = json.eval(input).asInstanceOf[UTF8String]
     if (jsonStr == null) {
       return null
@@ -159,17 +163,36 @@ case class GetJsonObject(json: Expression, path: Expression)
             evaluatePath(parser, generator, RawStyle, parsed.get)
           }
           if (matched) {
-            UTF8String.fromBytes(output.toByteArray)
+            val result = UTF8String.fromBytes(output.toByteArray)
+            if(cost) {
+              end = System.currentTimeMillis()
+              SparkEnv.jsonCost = SparkEnv.jsonCost + end - start
+            }
+            result
           } else {
+            if(cost) {
+              end = System.currentTimeMillis()
+              SparkEnv.jsonCost = SparkEnv.jsonCost + end - start
+            }
             null
           }
         }
       } catch {
-        case _: JsonProcessingException => null
+        case _: JsonProcessingException =>
+          if(cost) {
+            end = System.currentTimeMillis()
+            SparkEnv.jsonCost = SparkEnv.jsonCost + end - start
+          }
+          null
       }
     } else {
+      if(cost) {
+        end = System.currentTimeMillis()
+        SparkEnv.jsonCost = SparkEnv.jsonCost + end - start
+      }
       null
     }
+
   }
 
   private def parsePath(path: UTF8String): Option[List[PathInstruction]] = {
