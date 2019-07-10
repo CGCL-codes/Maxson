@@ -83,7 +83,7 @@ private[spark] class CoarseGrainedExecutorBackend(
   override def receiveAndReply(context: RpcCallContext): PartialFunction[Any, Unit] = {
     case AskExecutorReadTableTime(driverRef) =>
       logInfo(s"**************** receive AskExecutorReadTableTime from ${context.senderAddress.toString}")
-      driverRef.send(SendExecutorReadTableTime(SparkEnv.readerCost))
+      context.reply(true)
   }
 
 

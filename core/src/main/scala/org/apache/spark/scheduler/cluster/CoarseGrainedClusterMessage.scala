@@ -61,8 +61,6 @@ private[spark] object CoarseGrainedClusterMessages {
 
   // Executors to driver
 
-  case class SendExecutorReadTableTime(time: Long) extends CoarseGrainedClusterMessage
-
   case class RegisterExecutor(
       executorId: String,
       executorRef: RpcEndpointRef,
