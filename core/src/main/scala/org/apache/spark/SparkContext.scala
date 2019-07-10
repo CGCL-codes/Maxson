@@ -1889,11 +1889,12 @@ class SparkContext(config: SparkConf) extends Logging {
           val f = backend.getExecutorEndPointRef(executorId).ask[Long](AskExecutorReadTableTime(driverRef))
           val time = defaultAskTimeout.awaitResult[Long](f)
           timeMap(executorId) = time
+          logInfo(s"+++++++++++++++++++++++++++++++++ executorId: $executorId  read time: ${time/1000.0}s     +++++++++++++++++++++++++++++++++")
         }
       case _ =>
     }
-    logInfo(s"*****************reader cost is ${timeMap.foldLeft(0L)(_ + _._2)/1000.0}s **********************")
-    logInfo(s"************ SQL PLAN COST:  ${SparkEnv.sqlPlanCost/1000.0}s ******************")
+    logInfo(s"++++++++++++++++++++++++++++++++++++++++++++ average reader cost is ${timeMap.foldLeft(0L)(_ + _._2)/1000.0/timeMap.size.asInstanceOf[Double]}s ++++++++++++++++++++++++++++++++++++++++++++")
+    logInfo(s"++++++++++++++++++++++++++++++++++++++++++++ SQL PLAN COST:  ${SparkEnv.sqlPlanCost/1000.0}s ++++++++++++++++++++++++++++++++++++++++++++")
     if (LiveListenerBus.withinListenerThread.value) {
       throw new SparkException(s"Cannot stop SparkContext within listener bus thread.")
     }

@@ -172,8 +172,6 @@ private[spark] class DiskBlockManager(conf: SparkConf, deleteFilesOnStop: Boolea
   }
 
   private def doStop(): Unit = {
-    logInfo(s"******************reader cost is  ${SparkEnv.readerCost/1000.0} **********************************" +
-      s" **************************")
     if (deleteFilesOnStop) {
       localDirs.foreach { localDir =>
         if (localDir.isDirectory() && localDir.exists()) {
