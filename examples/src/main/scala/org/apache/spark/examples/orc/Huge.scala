@@ -22,18 +22,18 @@ object Huge {
 //  }
 
   def main(args: Array[String]): Unit = {
-//    val number = "2"
-//    val sarg = SearchArgumentFactory.newBuilder.startAnd.lessThan("frequency", number.toLong).end.build.toKryo
+    val number = "2"
+    val sarg = SearchArgumentFactory.newBuilder.startAnd.lessThan("frequency", number.toLong).end.build.toKryo
 //    println(sarg)
     val spark = SparkSession
       .builder()
       .master("local")
       .config("spark.sql.catalogImplementation","hive")
-      .config("spark.sql.json.optimize",true)
-//      .config("spark.sql.orc.filterPushdown",true)
-//      .config("hive.optimize.index.filter",true)
-//      .config("sarg.pushdown", sarg)
-      .config("hive.io.file.readcolumn.names", "time,frequency")
+//      .config("spark.sql.json.optimize",true)
+      .config("spark.sql.orc.filterPushdown",true)
+      .config("hive.optimize.index.filter",true)
+      .config("sarg.pushdown", sarg)
+      .config("hive.io.file.readcolumn.names", "time,frequency,path")
 
 //      .config("spark.sql.json.writeCache",true)
 //      .config("spark.sql.codegen.wholeStage", false)
@@ -54,9 +54,8 @@ object Huge {
 //    println(s"readJsonTime:$readJsonTime")
 
 ////
-//    val readColTime = TestUtil.readCol(spark,tableName,2)
-spark.sql("select time,get_json_object(path,'$.id') as path_id,get_json_object(path,'$.url') as path_url,frequency from huge").explain()
-//      .foreachPartition(iter => println(iter.size))
+    TestUtil.readCol(spark,tableName,1)
+//      readColTime.foreachPartition(iter => println(iter.size))
 
 //    println(s"readColTime:$readColTime")
 

@@ -48,8 +48,8 @@ private[spark] class DiskBlockManager(conf: SparkConf, deleteFilesOnStop: Boolea
   // of subDirs(i) is protected by the lock of subDirs(i)
   private val subDirs = Array.fill(localDirs.length)(new Array[File](subDirsPerLocalDir))
 
-  private val startTime = System.currentTimeMillis()
-  private var endTime = 0L
+
+
   private val shutdownHook = addShutdownHook()
 
   /** Looks up a file by hashing it into one of our local subdirectories. */
@@ -172,8 +172,7 @@ private[spark] class DiskBlockManager(conf: SparkConf, deleteFilesOnStop: Boolea
   }
 
   private def doStop(): Unit = {
-    endTime = System.currentTimeMillis()
-    logInfo(s"******************json cost is  ${SparkEnv.jsonCost/1000}s DiskBlockManager alive: ${(endTime-startTime)/1000}s" +
+    logInfo(s"******************json cost is  ${SparkEnv.readerCost/1000} **********************************" +
       s" **************************")
     if (deleteFilesOnStop) {
       localDirs.foreach { localDir =>

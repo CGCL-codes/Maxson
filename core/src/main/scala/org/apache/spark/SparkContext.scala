@@ -1949,7 +1949,6 @@ class SparkContext(config: SparkConf) extends Logging {
     localProperties.remove()
     // Unset YARN mode system env variable, to allow switching between cluster types.
     SparkContext.clearActiveContext()
-    logInfo(s"JsonCost is ${SparkEnv.jsonCost} ms")
     logInfo("Successfully stopped SparkContext")
   }
 

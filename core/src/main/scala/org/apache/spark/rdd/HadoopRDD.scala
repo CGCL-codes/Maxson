@@ -305,7 +305,11 @@ class HadoopRDD[K, V](
 
         reader =
           try {
-            inputFormat.getRecordReader(split.inputSplit.value, jobConf, Reporter.NULL)
+            val start = System.currentTimeMillis()
+            val tmp = inputFormat.getRecordReader(split.inputSplit.value, jobConf, Reporter.NULL)
+            val end = System.currentTimeMillis()
+            SparkEnv.readerCost += (end-start)
+            tmp
           } catch {
             case e: IOException if ignoreCorruptFiles =>
               logWarning(s"Skipped the rest content in the corrupted file: ${split.inputSplit}", e)
@@ -325,6 +329,7 @@ class HadoopRDD[K, V](
         private val value: V = if (reader == null) null.asInstanceOf[V] else reader.createValue()
 
         override def getNext(): (K, V) = {
+          val start = System.currentTimeMillis()
           try {
             finished = !reader.next(key, value)
           } catch {
@@ -338,6 +343,8 @@ class HadoopRDD[K, V](
           if (inputMetrics.recordsRead % SparkHadoopUtil.UPDATE_INPUT_METRICS_INTERVAL_RECORDS == 0) {
             updateBytesRead()
           }
+          val end = System.currentTimeMillis()
+          SparkEnv.readerCost += (end -start)
           (key,value)
         }
 
