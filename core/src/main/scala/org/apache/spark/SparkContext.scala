@@ -569,6 +569,7 @@ class SparkContext(config: SparkConf) extends Logging {
     _shutdownHookRef = ShutdownHookManager.addShutdownHook(
       ShutdownHookManager.SPARK_CONTEXT_SHUTDOWN_PRIORITY) { () =>
       logInfo("Invoking stop() from shutdown hook")
+      logInfo(s"************ SQL PLAN COST:  ${SparkEnv.sqlPlanCost/1000.0}s ******************")
       stop()
     }
   } catch {
