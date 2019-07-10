@@ -76,6 +76,17 @@ private[spark] class CoarseGrainedExecutorBackend(
       .map(e => (e._1.substring(prefix.length).toLowerCase(Locale.ROOT), e._2))
   }
 
+  /**
+    * Process messages from `RpcEndpointRef.ask`. If receiving a unmatched message,
+    * `SparkException` will be thrown and sent to `onError`.
+    */
+  override def receiveAndReply(context: RpcCallContext): PartialFunction[Any, Unit] = {
+    case AskExecutorReadTableTime(driverRef) =>
+      logInfo(s"**************** receive AskExecutorReadTableTime from ${context.senderAddress.toString}")
+      driverRef.send(SendExecutorReadTableTime(SparkEnv.readerCost))
+  }
+
+
   override def receive: PartialFunction[Any, Unit] = {
     case RegisteredExecutor =>
       logInfo("Successfully registered with driver")

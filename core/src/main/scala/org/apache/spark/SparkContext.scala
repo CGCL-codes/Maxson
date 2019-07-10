@@ -24,13 +24,12 @@ import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}
 
 import scala.collection.JavaConverters._
-import scala.collection.Map
+import scala.collection.{Map, mutable}
 import scala.collection.generic.Growable
 import scala.collection.mutable.HashMap
 import scala.language.implicitConversions
-import scala.reflect.{classTag, ClassTag}
+import scala.reflect.{ClassTag, classTag}
 import scala.util.control.NonFatal
-
 import com.google.common.collect.MapMaker
 import org.apache.commons.lang3.SerializationUtils
 import org.apache.hadoop.conf.Configuration
@@ -39,7 +38,6 @@ import org.apache.hadoop.io.{ArrayWritable, BooleanWritable, BytesWritable, Doub
 import org.apache.hadoop.mapred.{FileInputFormat, InputFormat, JobConf, SequenceFileInputFormat, TextInputFormat}
 import org.apache.hadoop.mapreduce.{InputFormat => NewInputFormat, Job => NewHadoopJob}
 import org.apache.hadoop.mapreduce.lib.input.{FileInputFormat => NewFileInputFormat}
-
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.deploy.{LocalSparkCluster, SparkHadoopUtil}
@@ -51,6 +49,7 @@ import org.apache.spark.partial.{ApproximateEvaluator, PartialResult}
 import org.apache.spark.rdd._
 import org.apache.spark.rpc.RpcEndpointRef
 import org.apache.spark.scheduler._
+import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages.AskExecutorReadTableTime
 import org.apache.spark.scheduler.cluster.{CoarseGrainedSchedulerBackend, StandaloneSchedulerBackend}
 import org.apache.spark.scheduler.local.LocalSchedulerBackend
 import org.apache.spark.status.AppStatusStore
@@ -569,7 +568,6 @@ class SparkContext(config: SparkConf) extends Logging {
     _shutdownHookRef = ShutdownHookManager.addShutdownHook(
       ShutdownHookManager.SPARK_CONTEXT_SHUTDOWN_PRIORITY) { () =>
       logInfo("Invoking stop() from shutdown hook")
-      logInfo(s"************ SQL PLAN COST:  ${SparkEnv.sqlPlanCost/1000.0}s ******************")
       stop()
     }
   } catch {
@@ -1881,6 +1879,21 @@ class SparkContext(config: SparkConf) extends Logging {
    * Shut down the SparkContext.
    */
   def stop(): Unit = {
+    val timeMap = new mutable.HashMap[String, Long]()
+    schedulerBackend match {
+      case backend: CoarseGrainedSchedulerBackend =>
+        val driverRef = backend.driverEndpoint
+        val defaultAskTimeout = backend.getDefaultAskTimeout
+        val executorIds = backend.getExecutorIds()
+        for (executorId <- executorIds) {
+          val f = backend.getExecutorEndPointRef(executorId).ask[Long](AskExecutorReadTableTime(driverRef))
+          val time = defaultAskTimeout.awaitResult[Long](f)
+          timeMap(executorId) = time
+        }
+      case _ =>
+    }
+    logInfo(s"*****************reader cost is ${timeMap.foldLeft(0L)(_ + _._2)/1000.0}s **********************")
+    logInfo(s"************ SQL PLAN COST:  ${SparkEnv.sqlPlanCost/1000.0}s ******************")
     if (LiveListenerBus.withinListenerThread.value) {
       throw new SparkException(s"Cannot stop SparkContext within listener bus thread.")
     }
