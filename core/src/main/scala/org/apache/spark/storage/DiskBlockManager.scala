@@ -172,7 +172,7 @@ private[spark] class DiskBlockManager(conf: SparkConf, deleteFilesOnStop: Boolea
   }
 
   private def doStop(): Unit = {
-    logInfo(s"******************json cost is  ${SparkEnv.readerCost/1000} **********************************" +
+    logInfo(s"******************json cost is  ${SparkEnv.readerCost/1000.0} **********************************" +
       s" **************************")
     if (deleteFilesOnStop) {
       localDirs.foreach { localDir =>
