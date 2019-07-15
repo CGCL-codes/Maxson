@@ -961,7 +961,7 @@ object JsonExprUtils {
       throw new AnalysisException("Must use a map() function for options")
   }
 
-  System.load("/home/feiwang/asplos/rust/pikkr/target/release/ libpikkr.so")
+  System.load("/home/feiwang/asplos/rust/pikkr/target/release/libpikkr.so")
 
   @native def parse(queryStr: Array[Byte], record: Array[Byte]): Array[Byte]
   @native def parseBatch(queryStr: Array[Byte], records: Array[Byte], arrayOffsets: Array[Int]): Array[Byte]
