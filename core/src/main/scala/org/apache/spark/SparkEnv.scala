@@ -138,7 +138,7 @@ class SparkEnv (
 object SparkEnv extends Logging {
   @volatile private var env: SparkEnv = _
   var readerCost = 0L
-  var cacheReaderCost = 0L
+  var sqlPlanCost = 0L
   private[spark] val driverSystemName = "sparkDriver"
   private[spark] val executorSystemName = "sparkExecutor"
   def set(e: SparkEnv) {

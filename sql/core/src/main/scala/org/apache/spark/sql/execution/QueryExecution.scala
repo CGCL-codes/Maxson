@@ -20,6 +20,7 @@ package org.apache.spark.sql.execution
 import java.nio.charset.StandardCharsets
 import java.sql.{Date, Timestamp}
 
+import org.apache.spark.SparkEnv
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{AnalysisException, Row, SparkSession}
 import org.apache.spark.sql.catalyst.InternalRow
@@ -53,8 +54,12 @@ class QueryExecution(val sparkSession: SparkSession, val logical: LogicalPlan) {
   }
 
   lazy val analyzed: LogicalPlan = {
+    val start = System.currentTimeMillis()
     SparkSession.setActiveSession(sparkSession)
-    sparkSession.sessionState.analyzer.executeAndCheck(logical)
+    val res = sparkSession.sessionState.analyzer.executeAndCheck(logical)
+    val end = System.currentTimeMillis()
+    SparkEnv.sqlPlanCost += (end - start)
+    res
   }
 
   lazy val withCachedData: LogicalPlan = {
@@ -63,13 +68,23 @@ class QueryExecution(val sparkSession: SparkSession, val logical: LogicalPlan) {
     sparkSession.sharedState.cacheManager.useCachedData(analyzed)
   }
 
-  lazy val optimizedPlan: LogicalPlan = sparkSession.sessionState.optimizer.execute(withCachedData)
+  lazy val optimizedPlan: LogicalPlan = {
+    val start = System.currentTimeMillis()
+    val res = sparkSession.sessionState.optimizer.execute(withCachedData)
+    val end = System.currentTimeMillis()
+    SparkEnv.sqlPlanCost += (end - start)
+    res
+  }
 
   lazy val sparkPlan: SparkPlan = {
     SparkSession.setActiveSession(sparkSession)
     // TODO: We use next(), i.e. take the first plan returned by the planner, here for now,
     //       but we will implement to choose the best plan.
-    planner.plan(ReturnAnswer(optimizedPlan)).next()
+    val start = System.currentTimeMillis()
+    val res = planner.plan(ReturnAnswer(optimizedPlan)).next()
+    val end = System.currentTimeMillis()
+    SparkEnv.sqlPlanCost += (end - start)
+    res
   }
 
   // executedPlan should not be used to initialize any SparkPlan. It should be
