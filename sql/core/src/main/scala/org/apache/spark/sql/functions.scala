@@ -3034,6 +3034,18 @@ object functions {
   }
 
   /**
+    * Extracts json object from a json string based on json path specified, and returns json string
+    * of the extracted json object. It will return null if the input json string is invalid.
+    * based on Mison;
+    *
+    * @group collection_funcs
+    * @since 1.6.0
+    */
+  def get_json_object_mison(e: Column, path: String): Column = withExpr {
+    GetJsonObjectMison(e.expr, lit(path).expr)
+  }
+
+  /**
    * Creates a new row for a json column according to the given field names.
    *
    * @group collection_funcs
