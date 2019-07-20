@@ -96,10 +96,6 @@ case class HiveTableScanExec(
       originalAttributesIncludeJson.update(newAttr.exprId, newAttr)
       newAttr
     }
-    println(s"originalTableSchema: ${relation.output}")
-    println(s"***originalCols: *****************$originalCols ************************")
-    println(s"***JsonCols: *****************$jsonCols ************************")
-
     originalCols ++ jsonCols
   }
 
