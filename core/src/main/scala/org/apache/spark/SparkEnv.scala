@@ -137,6 +137,7 @@ class SparkEnv (
 
 object SparkEnv extends Logging {
   @volatile private var env: SparkEnv = _
+  var jsonCost = 0L
   var readerCost = 0L
   var sqlPlanCost = 0L
   private[spark] val driverSystemName = "sparkDriver"

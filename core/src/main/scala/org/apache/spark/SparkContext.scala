@@ -49,7 +49,7 @@ import org.apache.spark.partial.{ApproximateEvaluator, PartialResult}
 import org.apache.spark.rdd._
 import org.apache.spark.rpc.RpcEndpointRef
 import org.apache.spark.scheduler._
-import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages.AskExecutorReadTableTime
+import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages.{AskExecutorJsonCostTime, AskExecutorReadTableTime}
 import org.apache.spark.scheduler.cluster.{CoarseGrainedSchedulerBackend, StandaloneSchedulerBackend}
 import org.apache.spark.scheduler.local.LocalSchedulerBackend
 import org.apache.spark.status.AppStatusStore
@@ -1880,6 +1880,7 @@ class SparkContext(config: SparkConf) extends Logging {
    */
   def stop(): Unit = {
     val timeMap = new mutable.HashMap[String, Long]()
+    val jsonCostMap = new mutable.HashMap[String, Long]()
     schedulerBackend match {
       case backend: CoarseGrainedSchedulerBackend =>
         val driverRef = backend.driverEndpoint
@@ -1890,10 +1891,15 @@ class SparkContext(config: SparkConf) extends Logging {
           val time = defaultAskTimeout.awaitResult[Long](f)
           timeMap(executorId) = time
           logInfo(s"+++++++++++++++++++++++++++++++++ executorId: $executorId  read time: ${time/1000.0}s     +++++++++++++++++++++++++++++++++")
+          val jsonF = backend.getExecutorEndPointRef(executorId).ask[Long](AskExecutorJsonCostTime(driverRef))
+          val timeF = defaultAskTimeout.awaitResult[Long](jsonF)
+          jsonCostMap(executorId) = timeF
+          logInfo(s"+++++++++++++++++++++++++++++++++ executorId: $executorId  json cost time: ${timeF/1000.0}s     +++++++++++++++++++++++++++++++++")
         }
       case _ =>
     }
     logInfo(s"++++++++++++++++++++++++++++++++++++++++++++ average reader cost is ${timeMap.foldLeft(0L)(_ + _._2)/1000.0/timeMap.size.asInstanceOf[Double]}s ++++++++++++++++++++++++++++++++++++++++++++")
+    logInfo(s"++++++++++++++++++++++++++++++++++++++++++++ average json cost is ${jsonCostMap.foldLeft(0L)(_ + _._2)/1000.0/jsonCostMap.size.asInstanceOf[Double]}s ++++++++++++++++++++++++++++++++++++++++++++")
     logInfo(s"++++++++++++++++++++++++++++++++++++++++++++ SQL PLAN COST:  ${SparkEnv.sqlPlanCost/1000.0}s ++++++++++++++++++++++++++++++++++++++++++++")
     if (LiveListenerBus.withinListenerThread.value) {
       throw new SparkException(s"Cannot stop SparkContext within listener bus thread.")

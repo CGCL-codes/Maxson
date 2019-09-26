@@ -84,6 +84,9 @@ private[spark] class CoarseGrainedExecutorBackend(
     case AskExecutorReadTableTime(driverRef) =>
       logInfo(s"**************** receive AskExecutorReadTableTime from ${context.senderAddress.toString}")
       context.reply(SparkEnv.readerCost)
+    case AskExecutorJsonCostTime(driverRef) =>
+      logInfo(s"**************** receive AskExecutorJsonCostTime from ${context.senderAddress.toString}")
+      context.reply(SparkEnv.jsonCost)
   }
 
 

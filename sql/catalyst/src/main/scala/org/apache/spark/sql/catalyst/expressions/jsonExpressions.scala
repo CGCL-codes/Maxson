@@ -166,11 +166,13 @@ case class GetJsonObject(json: Expression, path: Expression)
             val result = UTF8String.fromBytes(output.toByteArray)
             if(cost) {
               end = System.currentTimeMillis()
+              SparkEnv.jsonCost = SparkEnv.jsonCost + end - start
             }
             result
           } else {
             if(cost) {
               end = System.currentTimeMillis()
+              SparkEnv.jsonCost = SparkEnv.jsonCost + end - start
             }
             null
           }
@@ -179,12 +181,14 @@ case class GetJsonObject(json: Expression, path: Expression)
         case _: JsonProcessingException =>
           if(cost) {
             end = System.currentTimeMillis()
+            SparkEnv.jsonCost = SparkEnv.jsonCost + end - start
           }
           null
       }
     } else {
       if(cost) {
         end = System.currentTimeMillis()
+        SparkEnv.jsonCost = SparkEnv.jsonCost + end - start
       }
       null
     }

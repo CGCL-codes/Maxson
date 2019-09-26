@@ -47,25 +47,26 @@ object SaveOrcHu {
     val time: Array[Long] = new Array[Long](num)
     //    spark.sql(s"select * from default_$tableName").show()
     //    spark.sql(s"select * from $tableName").show()
-    val count = spark.sparkContext.longAccumulator("count")
-    for (i <- 0 until num) {
-      val start = System.currentTimeMillis()
-      spark.sql(
-        s"""select frequency, get_json_object(path,'$$.id')as path_id,
-           |get_json_object(path,'$$.html_url') as path_body,
-           |time
-           | from $tableName""".stripMargin)
-        //        .show(10)
-        .foreachPartition(iter => count.add(iter.size))
-      val end = System.currentTimeMillis()
-      time(i) = (end - start) / 1000
-    }
-    val optimizeStr = if (optimize) {
-      "optimize"
-    } else {
-      "unoptimize"
-    }
-    println(s"""$optimizeStr $num times: ${time.mkString(",")}  avg: ${time.sum / num} count: ${count.value}""")
+//
+    spark.sql(s"select count(distinct(path)) from $tableName group by frequency").explain(true)
+//    for (i <- 0 until num) {
+//      val start = System.currentTimeMillis()
+//      spark.sql(
+//        s"""select frequency, get_json_object(path,'$$.id')as path_id,
+//           |get_json_object(path,'$$.html_url') as path_body,
+//           |time
+//           | from $tableName""".stripMargin)
+//        //        .show(10)
+//        .foreachPartition(iter => count.add(iter.size))
+//      val end = System.currentTimeMillis()
+//      time(i) = (end - start) / 1000
+//    }
+//    val optimizeStr = if (optimize) {
+//      "optimize"
+//    } else {
+//      "unoptimize"
+//    }
+//    println(s"""$optimizeStr $num times: ${time.mkString(",")}  avg: ${time.sum / num} count: ${count.value}""")
   }
 }
 
