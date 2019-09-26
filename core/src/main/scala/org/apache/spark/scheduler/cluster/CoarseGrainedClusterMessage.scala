@@ -59,6 +59,7 @@ private[spark] object CoarseGrainedClusterMessages {
 
   case class AskExecutorReadTableTime(driverRef: RpcEndpointRef) extends CoarseGrainedClusterMessage
   case class AskExecutorJsonCostTime(driverRef: RpcEndpointRef) extends CoarseGrainedClusterMessage
+  case class AskExecutorAlignCostTime(driverRef: RpcEndpointRef) extends CoarseGrainedClusterMessage
 
 
   // Executors to driver

@@ -140,6 +140,7 @@ object SparkEnv extends Logging {
   var jsonCost = 0L
   var readerCost = 0L
   var sqlPlanCost = 0L
+  var rowAlignCost = 0L
   private[spark] val driverSystemName = "sparkDriver"
   private[spark] val executorSystemName = "sparkExecutor"
   def set(e: SparkEnv) {
