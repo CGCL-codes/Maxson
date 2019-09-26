@@ -144,22 +144,40 @@ class HadoopMapReduceCommitProtocol(
     // Note that %05d does not truncate the split number, so if we have more than 100000 tasks,
     // the file name is fine and won't overflow.
 
+//    var fileName :String = null
+//    //TODO:zyp 加判断条件
+//    if(SparkEnv.get.conf.getBoolean("spark.sql.json.writeCache",false)){
+//      val path = InputFileBlockHolder.getInputFilePath.toString
+//      val pattern =  new Regex("""(?s)part-(.*)-c000""")
+//      val firstMatch = pattern.findFirstMatchIn(path)
+//      var split:String = null
+//      if(firstMatch.isDefined){
+//        split = firstMatch.get.group(1)
+//      }
+//      fileName = f"part-$split-$jobId$ext"
+//    }else{
+//      val split = taskContext.getTaskAttemptID.getTaskID.getId
+//      fileName = f"part-$split%05d-$jobId$ext"
+//    }
+//    fileName
+
+
+
+    var split = taskContext.getTaskAttemptID.getTaskID.getId
+
     var fileName :String = null
     //TODO:zyp 加判断条件
-    if(SparkEnv.get.conf.getBoolean("spark.sql.json.writeCache",false)){
+    if(SparkEnv.get.conf.getBoolean("spark.sql.json.writeCache",false)) {
       val path = InputFileBlockHolder.getInputFilePath.toString
-      val pattern =  new Regex("""(?s)part-(.*)-c000""")
+      val pattern = new Regex("""(?s)part-(\d+)-""")
+
       val firstMatch = pattern.findFirstMatchIn(path)
-      var split:String = null
-      if(firstMatch.isDefined){
-        split = firstMatch.get.group(1)
+//      var split: String = null
+      if (firstMatch.isDefined) {
+        split = firstMatch.get.group(1).toInt
       }
-      fileName = f"part-$split-$jobId$ext"
-    }else{
-      val split = taskContext.getTaskAttemptID.getTaskID.getId
-      fileName = f"part-$split%05d-$jobId$ext"
     }
-    fileName
+      f"part-$split%05d-$jobId$ext"
   }
 
   override def setupJob(jobContext: JobContext): Unit = {

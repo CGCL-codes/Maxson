@@ -386,7 +386,14 @@ class HadoopRDD[K, V](
       private val split = theSplit.asInstanceOf[HadoopPartition]
       var cacheSplit: HadoopPartition = null
       if (cacheInfo != null) cacheSplit = cacheSplits.value(split.index).asInstanceOf[HadoopPartition]
+      println(s"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!cacheSplits length${cacheSplits.value.length}")
       logInfo("Input split: " + split.inputSplit)
+
+      println(s"!!!!!!!!!!!!!!!!!!!!!!!${split.index}")
+      println(s"!!!!!!!!!!!!!!!!!!!!!!!cache:${cacheSplit.inputSplit.value.asInstanceOf[FileSplit].getPath.toString}")
+      println(s"!!!!!!!!!!!!!!!!!!!!!!!nocache:${split.inputSplit.value.asInstanceOf[FileSplit].getPath.toString}")
+
+
       private val jobConf = getJobConf()
       private val cacheJobConf = new JobConf(broadCastedCacheConf.value.value)
 
@@ -514,7 +521,7 @@ class HadoopRDD[K, V](
           try {
             if (cacheReader != null) cacheReader.close()
             reader.close()
-            println(s"**************split:*********${split.index}****${split.inputSplit.value.getLength}")
+//            println(s"**************split:*********${split.index}****${split.inputSplit.value.getLength}")
           } catch {
             case e: Exception =>
               if (!ShutdownHookManager.inShutdown()) {

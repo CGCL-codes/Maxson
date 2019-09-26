@@ -11,8 +11,8 @@ import org.apache.spark.sql.SparkSession
   */
 object Huge {
   val path = "C:\\Users\\zyp\\ali\\spark\\examples\\src\\main\\resources\\giant.txt"
-  val tableName = "simple"
-//  val cacheTableName = "default_"+tableName
+  val tableName = "huge"
+  val cacheTableName = "default_"+tableName
 
 //  def toKryo(sarg: SearchArgument): String = {
 //    val out = new Output(4 * 1024, 10 * 1024 * 1024)
@@ -27,9 +27,9 @@ object Huge {
 ////    println(sarg)
     val spark = SparkSession
       .builder()
-      .master("local")
+      .master("local[1]")
       .config("spark.sql.catalogImplementation","hive")
-//      .config("spark.sql.json.optimize",true)
+      .config("spark.sql.json.optimize",true)
 //      .config("spark.sql.orc.filterPushdown",true)
 //      .config("hive.optimize.index.filter",true)
 ////      .config("sarg.pushdown", sarg)
@@ -55,7 +55,8 @@ object Huge {
 
 ////
 //    spark.sql("select * from simple").show(10)
-         spark.sql(s"select time,get_json_object_mison(path,'$$.id') as path_id from $tableName").show(10)
+//         spark.sql(s"select time,get_json_object_mison(path,'$$.id') as path_id,get_json_object_mison(path,'$$.url') as path_url  from huge where path_id>10000 ").show(10)
+         spark.sql(s"select time,get_json_object(path,'$$.id') as path_id,get_json_object(path,'$$.url') as path_url  from huge where get_json_object(path,'$$.id')>10000 ").explain()
 //      readColTime.foreachPartition(iter => println(iter.size))
 
 //    println(s"readColTime:$readColTime")
