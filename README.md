@@ -1,103 +1,24 @@
-# Apache Spark
+###Maxson
+ we  start  with  a  study  with  a  real  production  workload in  Alibaba,  which  consists  of  over  3  million  queries  on  JSON.Our  study  reveals  significant temporal and spatial correlations among those queries, which result in massive redundant parsing operations  among  queries.  Instead  of  repetitively  parsing  theJSON data, we propose to develop a cache system named Maxsonfor  caching  the  JSON  query  results  (the  values  evaluated  fromJSONPath)  for  reuse.  Specifically,  we  develop  effective  machinelearning-based   predictor   with   combining   LSTM   (long   short-term memory) and CRF (conditional random field) to determinethe   JSONPaths   to   cache   given   the   space   budget.   We   have implemented  Maxson  on  top  of  SparkSQL.  
 
-Spark is a fast and general cluster computing system for Big Data. It provides
-high-level APIs in Scala, Java, Python, and R, and an optimized engine that
-supports general computation graphs for data analysis. It also supports a
-rich set of higher-level tools including Spark SQL for SQL and DataFrames,
-MLlib for machine learning, GraphX for graph processing,
-and Spark Streaming for stream processing.
+###Structure of Maxson
 
-<http://spark.apache.org/>
+![Alt text](./1584011436124.png)
 
 
-## Online Documentation
+Maxson is designed to be fully compatible with SparkSQL,a  Spark  module  for  structured  data  processing.  Users  canexecute  SQL  queries  and  support  reading  and  writing  datastored in Hive. SparkSQL compiles SQL queries into physical plans  to  be  executed  on  a  cluster.  
+A  physical  plan  is  a  set of  RDD   operations  that  are  executed  on  the  data  source,typically contains scan,filter,projection,join, etc. To make aphysical plan to access the cache table, we implemented Maxson Parser based on SparkSQL parser. When the Maxson Parser compiles SQL statement into a physical plan, if a JSONPathin  the  SQL  statement  hits  a  valid  cached  value,  it  generates a  placeholder  that  stores  the  JSONPath  information  and  thereference to the cache table. A cache item is valid if the cached time is behind the last modification time of raw data table. If the query needs to access both cached and uncached data, then during the table scan phase, we use Value Combiner to stitch the cached and uncached data into complete records.
 
-You can find the latest Spark documentation, including a programming
-guide, on the [project web page](http://spark.apache.org/documentation.html).
-This README file only contains basic setup instructions.
 
-## Building Spark
+###Building and  configuration
+Maxson is built using Apache Maven. To build Maxson and its example programs, run:
 
-Spark is built using [Apache Maven](http://maven.apache.org/).
-To build Spark and its example programs, run:
+```build/mvn -Pyarn -Phadoop-2.7 -Dhadoop.version=2.7.3 -Phive -Phive-thriftserver -DskipTests package
+```
+We   have implemented  Maxson  on  top  of  Spark. The configuraion is same to the Spark.
 
-    build/mvn -DskipTests clean package
+http://spark.apache.org/
 
-(You do not need to do this if you downloaded a pre-built package.)
 
-You can build Spark using more than one thread by using the -T option with Maven, see ["Parallel builds in Maven 3"](https://cwiki.apache.org/confluence/display/MAVEN/Parallel+builds+in+Maven+3).
-More detailed documentation is available from the project site, at
-["Building Spark"](http://spark.apache.org/docs/latest/building-spark.html).
 
-For general development tips, including info on developing Spark using an IDE, see ["Useful Developer Tools"](http://spark.apache.org/developer-tools.html).
 
-## Interactive Scala Shell
-
-The easiest way to start using Spark is through the Scala shell:
-
-    ./bin/spark-shell
-
-Try the following command, which should return 1000:
-
-    scala> sc.parallelize(1 to 1000).count()
-
-## Interactive Python Shell
-
-Alternatively, if you prefer Python, you can use the Python shell:
-
-    ./bin/pyspark
-
-And run the following command, which should also return 1000:
-
-    >>> sc.parallelize(range(1000)).count()
-
-## Example Programs
-
-Spark also comes with several sample programs in the `examples` directory.
-To run one of them, use `./bin/run-example <class> [params]`. For example:
-
-    ./bin/run-example SparkPi
-
-will run the Pi example locally.
-
-You can set the MASTER environment variable when running examples to submit
-examples to a cluster. This can be a mesos:// or spark:// URL,
-"yarn" to run on YARN, and "local" to run
-locally with one thread, or "local[N]" to run locally with N threads. You
-can also use an abbreviated class name if the class is in the `examples`
-package. For instance:
-
-    MASTER=spark://host:7077 ./bin/run-example SparkPi
-
-Many of the example programs print usage help if no params are given.
-
-## Running Tests
-
-Testing first requires [building Spark](#building-spark). Once Spark is built, tests
-can be run using:
-
-    ./dev/run-tests
-
-Please see the guidance on how to
-[run tests for a module, or individual tests](http://spark.apache.org/developer-tools.html#individual-tests).
-
-## A Note About Hadoop Versions
-
-Spark uses the Hadoop core library to talk to HDFS and other Hadoop-supported
-storage systems. Because the protocols have changed in different versions of
-Hadoop, you must build Spark against the same version that your cluster runs.
-
-Please refer to the build documentation at
-["Specifying the Hadoop Version"](http://spark.apache.org/docs/latest/building-spark.html#specifying-the-hadoop-version)
-for detailed guidance on building for a particular distribution of Hadoop, including
-building for particular Hive and Hive Thriftserver distributions.
-
-## Configuration
-
-Please refer to the [Configuration Guide](http://spark.apache.org/docs/latest/configuration.html)
-in the online documentation for an overview on how to configure Spark.
-
-## Contributing
-
-Please review the [Contribution to Spark guide](http://spark.apache.org/contributing.html)
-for information on how to get started contributing to the project.
