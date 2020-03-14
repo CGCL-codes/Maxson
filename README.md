@@ -28,7 +28,7 @@ When use Maxson to run Example,you need to configure
 
 ## Reference Paper
 
-> Hong Huang, Xuanhua Shi, Yipeng Zhang, Zhenyu Hu, Hai Jin, Huan Shen, Yongluan Zhou, Bingsheng He, Ruibo Li, Keyong Zhou. Maxson: Reduce duplicate Parsing Overhead on Raw Data. ICDE 2020: IEEE International Conference on Data Engineering 2020 (Industry and Application track, acceptance rate: 26%).
+> Xuanhua Shi, Yipeng Zhang, Hong Huang, Zhenyu Hu, Hai Jin, Huan Shen, Yongluan Zhou, Bingsheng He, Ruibo Li, Keyong Zhou. Maxson: Reduce duplicate Parsing Overhead on Raw Data. ICDE 2020: IEEE International Conference on Data Engineering 2020 (Industry and Application track, acceptance rate: 26%).
 
 ## Support or Contact
 If you have any questions, please contact Yipeng Zhang (<jinyu_zyp@hust.edu.cn>)
